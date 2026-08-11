@@ -1,0 +1,2 @@
+{"id": 1, "question": "Doanh thu thuần năm 2018 của VJC là bao nhiêu?", "expected_answer": 52400.5, "expected_evidence": [{"csv_path": "data/mock_csv/VJC_2018_BaoCaoKetQuaKinhDoanh.csv"}]}
+{"id": 2, "question": "Lợi nhuận gộp năm 2018 của VJC là bao nhiêu?", "expected_answer": 7450.0, "expected_evidence": [{"csv_path": "data/mock_csv/VJC_2018_BaoCaoKetQuaKinhDoanh.csv"}]}

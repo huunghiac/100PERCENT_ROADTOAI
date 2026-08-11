@@ -1,0 +1,9 @@
+name: financial
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pandas
+  - beautifulsoup4
+  - requests
