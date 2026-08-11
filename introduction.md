@@ -1,48 +1,58 @@
-````shell
-## 1. Bối cảnh
-Nhà đầu tư, chuyên viên phân tích và doanh nghiệp tại Việt Nam thường mất nhiều thời gian tra cứu thủ công các chỉ số tài chính (doanh thu, lợi nhuận, ROE, ROA, tỉ lệ nợ/vốn chủ sở hữu, tăng trưởng theo giai đoạn...) nằm rải rác trong hàng trăm báo cáo tài chính (BCTC) dạng bảng của các công ty niêm yết. Trợ lý AI Text-to-Pandas được xây dựng nhằm hỗ trợ tự động hoá việc tra cứu, tổng hợp và tính toán các chỉ số này từ dữ liệu BCTC gốc.
-
-So với các bài toán Text-to-SQL trên dữ liệu tiếng Anh, nguồn tài nguyên và nghiên cứu về Text-to-Pandas trên dữ liệu tài chính tiếng Việt vẫn còn hạn chế.
-
-## 2. Nhiệm vụ cốt lõi
-Cuộc thi hướng tới việc xây dựng các hệ thống AI có khả năng:
-- **Truy hồi bảng dữ liệu (Table Retrieval):** Xác định đúng bảng dữ liệu chứa số liệu cần thiết từ kho báo cáo tài chính.
-- **Sinh truy vấn Pandas (Text-to-Pandas):** Tự động sinh và thực thi câu lệnh pandas trên các bảng đã truy hồi để trả lời chính xác câu hỏi.
-
-## 3. Mục tiêu cụ thể của Hệ thống AI
-Các đội thi cần xây dựng hệ thống đáp ứng:
-1. **Truy hồi dữ liệu chính xác:** Đúng công ty, năm, bảng. Ưu tiên grounding chính xác trên dữ liệu dạng bảng.
-2. **Hiểu truy vấn tài chính bằng tiếng Việt:** Xử lý câu hỏi so sánh, chỉ số dẫn xuất.
-3. **Sinh truy vấn pandas & tính toán chính xác:** Code pandas chạy được, đúng schema, trả về đúng số liệu và đơn vị.
-4. **Dẫn nguồn minh bạch:** Trích dẫn rõ công ty, năm, tên báo cáo, tên bảng (để kiểm chứng).
-5. **Kiểm soát nội dung sai lệch (Hallucination):** Hạn chế AI sinh số liệu/bảng bịa đặt.
-
-## 4. Dữ liệu Cuộc thi
-- **Kho báo cáo tài chính:** BCTC OCR định dạng `.txt` của 100 công ty niêm yết trong 10 năm (Bảng CĐKT, KQKD, LCTT, Thuyết minh). Làm nguồn gốc để truy hồi.
-- **Bộ dữ liệu kiểm thử (Test set):** File `questions.jsonl`. Gồm id và câu hỏi (Không kèm đáp án). Dùng để chấm điểm.
-- **Lưu ý:** BTC KHÔNG cung cấp tập Train/Dev. Không cung cấp pipeline xử lý dữ liệu sẵn. Đội thi tự làm sạch, trích xuất bảng từ `.txt`. Các nguồn dữ liệu hợp pháp khác được phép sử dụng.
-
-## 5. Quy định về Mô hình & Phương pháp Sinh dữ liệu
-- **Giới hạn Mô hình:** Chỉ được phép sử dụng mô hình LLM mã nguồn mở có kích thước **≤ 14B tham số** . **Tuyệt đối không dùng mô hình đóng** (như GPT-4, Claude).
-
-- **Phương án sinh dữ liệu dự kiến của đội:**
-  1. **Nguồn dữ liệu gốc:** Kho báo cáo tài chính do chính BTC cung cấp (100 công ty × 10 năm).
-  2. **Cách sinh:** Tự động sinh cặp (câu hỏi, truy vấn pandas, đáp án) mới trên kho gốc thông qua quy trình sinh đề của đội. Đáp án được kiểm định tất định bằng cách thực thi truy vấn trên đúng bảng nguồn, không dùng bất kỳ nhãn nào của tập kiểm thử.
-  3. **Mô hình dùng trong khâu sinh:** Tuân thủ triệt để giới hạn - chỉ dùng LLM nguồn mở ≤ 14B.
-
-## 6. Định dạng Nộp bài (Submission)
-- **Cấu trúc nộp:** Phải đóng gói thành 1 file `submission.zip`.
-  ```text
-  submission.zip
-  ├── submission.json
-  └── data/
-      ├── <bảng_1>.csv
-      ├── <bảng_2>.csv
-      └── ...
-````
-
-- File `.json` và thư mục `data/` phải nằm ngoài cùng (không có thư mục cha).
-- Đường dẫn `csv_path` trong `.json` phải là đường dẫn tương đối, bắt đầu bằng `data/`.
-- Bài nộp thiếu file CSV hoặc thiếu câu hỏi sẽ __không được chấm__.
-- __Giới hạn:__ 10 bài/ngày. Vòng Private (Private Phase) tối đa 5 bài tổng cộng.
-- __Quy định chót:__ Kết quả chỉ chính thức khi đội nộp báo cáo mô tả phương pháp (Working notes paper). BTC có quyền kiểm tra và loại bài vi phạm." 
+# Tổng Quan Đề Bài & Quy Định Cuộc Thi ViFinQA (Text-to-Pandas)`
+`
+## 1. Giới Thiệu Đề Bài`
+- **Bối cảnh:** Tra cứu chỉ số tài chính (doanh thu, lợi nhuận, ROE, ROA,...) từ các Báo cáo tài chính (BCTC) dạng bảng của 100 công ty niêm yết qua 10 năm tại Việt Nam.`
+- **Nhiệm vụ cốt lõi:** Xây dựng trợ lý AI có khả năng:`
+  1. **Table Retrieval (Truy hồi bảng dữ liệu):** Nhận diện chính xác 1-3 bảng dữ liệu trong kho BCTC chứa thông tin liên quan tới câu hỏi.`
+  2. **Text-to-Pandas Query Generation (Sinh truy vấn Pandas):** Hiểu tiếng Việt tài chính, chuyển logic thành code Pandas thực thi được để tính ra đáp án chính xác.`
+  3. **Grounding & Minh bạch:** Trích dẫn rõ nguồn gốc bảng dữ liệu tham chiếu (tên công ty, năm, tên bảng).`
+`
+## 2. Dữ Liệu Ban Tổ Chức Cung Cấp & Quy Định Model`
+- **Dữ liệu BCTC:** 100 công ty × 10 năm dạng file OCR .txt.`
+- **Dữ liệu kiểm thử (Test set):** 1012 câu hỏi questions.jsonl (không có đáp án chuẩn, BTC giữ bộ đáp án kín).`
+- **Giới hạn Mô hình (LLM Constraint):** Chỉ được sử dụng các mô hình LLM nguồn mở **≤ 14B** (ví dụ: Qwen2.5-7B, Qwen2.5-14B, Llama-3-8B). **Tuyệt đối không dùng mô hình đóng API** (GPT-4, Claude, Gemini Pro) ở bất kỳ khâu nào để đảm bảo tính tái lập và hợp lệ khi nộp báo cáo (working notes paper).`
+`
+## 3. Phương Pháp Đánh Giá (Evaluation Specification)`
+`
+### 3.1 Truy hồi thông tin (Table Retrieval)`
+Hiệu suất hệ thống trên nhiệm vụ truy hồi bảng dữ liệu được đánh giá bằng các chỉ số Độ chính xác (Precision), Độ bao phủ (Recall) và điểm F2 macro. Sử dụng macro-average (tính chỉ số đánh giá cho từng truy vấn rồi lấy trung bình) để tính điểm đánh giá cuối cùng.`
+`
+- **Độ chính xác (Precision):** Precision = trung bình của (số bảng dữ liệu truy hồi đúng cho mỗi truy vấn) / (số bảng dữ liệu đã truy hồi cho mỗi truy vấn)`
+- **Độ bao phủ (Recall):** Recall = trung bình của (số bảng dữ liệu truy hồi đúng cho mỗi truy vấn) / (số bảng dữ liệu liên quan của mỗi truy vấn)`
+- **Độ đo F2:** F2 = (5 × Precision × Recall) / (4 × Precision + Recall) (Ưu tiên cao độ bao phủ Recall để tránh bỏ sót bảng căn cứ).`
+`
+### 3.2 Độ chính xác kết quả (Answer Accuracy)`
+Độ chính xác của số liệu đầu ra so với đáp án chuẩn, tính trong ngưỡng sai số cho phép do Ban Tổ chức (BTC) công bố.`
+`
+- Answer Accuracy = (số query có kết quả khớp đáp án chuẩn, trong ngưỡng sai số) / (tổng số query)`
+`
+### 3.3 Độ chính xác pandas query (Execution Accuracy)`
+Hiệu suất hệ thống trên nhiệm vụ sinh mã truy vấn và tính toán trên bảng dữ liệu tài chính được đánh giá bằng chỉ số Execution Accuracy. Sử dụng macro-average để tính điểm đánh giá cuối cùng.`
+`
+- Execution Accuracy = (số code chạy được và cho kết quả đúng) / (tổng số query)`
+`
+## 4. Quy Định Nộp Bài (Submission Format)`
+Bài nộp đóng gói dưới dạng file submission.zip:`
+``	ext`
+submission.zip`
+├── submission.json`
+└── data/`
+    ├── <bảng_1>.csv`
+    ├── <bảng_2>.csv`
+    └── ...`
+``
+- submission.json và thư mục data/ phải ở cấp ngoài cùng (không bọc trong thư mục cha).`
+- Mọi csv_path trong file .json phải là đường dẫn tương đối bắt đầu bằng data/.`
+- Giới hạn: 10 lần nộp/ngày. Vòng Private tối đa 5 lần nộp tổng cộng.`
+`
+---`
+`
+## 5. Phương Án Sinh Dữ Liệu Dự Kiến (Synthetic Data Pipeline)`
+Do BTC không cung cấp tập dữ liệu Train/Dev, nhóm sẽ áp dụng quy trình tự sinh dữ liệu:`
+`
+1. **Nguồn dữ liệu gốc:** Kho báo cáo tài chính 100 công ty × 10 năm do BTC cung cấp.`
+2. **Quy trình sinh:**`
+   - Quét dữ liệu bảng .csv trích xuất được.`
+   - Sinh các bộ ba: **(Câu hỏi tiếng Việt, Truy vấn Pandas, Đáp án)** từ đúng bảng nguồn đó.`
+   - **Kiểm định tất định (Deterministic Validation):** Đáp án được xác nhận bằng cách thực thi trực tiếp truy vấn Pandas trên bảng nguồn. Tuyệt đối không dùng bất kỳ nhãn nào của tập kiểm thử (questions.jsonl).`
+3. **Mô hình khâu sinh:** Chỉ sử dụng **LLM nguồn mở ≤ 14B**, không dùng mô hình đóng.`
