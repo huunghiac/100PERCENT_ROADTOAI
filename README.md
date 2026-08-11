@@ -6,7 +6,6 @@ Dự án tự động hóa việc tra cứu và tính toán chỉ số tài chí
 
 ## 1. Cấu Trúc Thư Mục Dự Án
 
-`	ext
 Road-to-AI/
 ├── data/
 │   ├── raw_vifinqa/         # Kho BCTC dạng văn bản (.txt) từ Ban Tổ Chức
@@ -24,7 +23,6 @@ Road-to-AI/
 ├── submission.zip           # File ZIP cuối cùng nộp cho BTC
 ├── README.md                # Hướng dẫn dự án & Kế hoạch làm việc
 └── introduction.md          # Đề bài, luật chơi & phương pháp đánh giá chi tiết
-`
 
 ---
 
