@@ -1,0 +1,7 @@
+<!-- Excerpted and reduced from AAA 2018 separate; no reliable unit appears nearby. -->
+<h2>BÁO CÁO KẾT QUẢ HOẠT ĐỘNG KINH DOANH RIÊNG</h2>
+<table>
+  <tr><th>Chỉ tiêu</th><th>Mã số</th><th>Thuyết minh</th><th>Năm nay</th><th>Năm trước</th></tr>
+  <tr><td>1. Doanh thu bán hàng và cung cấp dịch vụ</td><td>01</td><td></td><td>5.009.964.335.072</td><td>3.550.043.848.026</td></tr>
+  <tr><td>2. Các khoản giảm trừ doanh thu</td><td>02</td><td></td><td>4.130.713.328</td><td>6.094.868.449</td></tr>
+</table>

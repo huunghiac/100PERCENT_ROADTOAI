@@ -1,0 +1,130 @@
+{
+  "accuracy_scope": "This is a provenance/reproducibility audit, not an independent estimate of financial numeric accuracy; use the gold evaluator for correctness.",
+  "audit_kind": "stratified_source_to_output_reproducibility",
+  "failure_count": 0,
+  "failures": [],
+  "manifest_entries": 17849,
+  "metrics": {
+    "exact_table_reproduction_rate": 1.0,
+    "exact_tables": 160,
+    "label_reproduction_rate": 1.0,
+    "manifest_reproduction_rate": 1.0,
+    "numeric_reproduction_rate": 1.0,
+    "raw_label_token_provenance_rate": 1.0,
+    "raw_numeric_provenance_rate": 1.0,
+    "row_positions_compared": 2783,
+    "unit_reproduction_rate": 1.0
+  },
+  "population_strata": {
+    "report_type": {
+      "aggregated": 66,
+      "consolidated": 9422,
+      "separate": 8361
+    },
+    "report_year": {
+      "2015": 1301,
+      "2016": 1322,
+      "2017": 1424,
+      "2018": 1488,
+      "2019": 1542,
+      "2020": 1762,
+      "2021": 1747,
+      "2022": 1822,
+      "2023": 1797,
+      "2024": 1838,
+      "2025": 1806
+    },
+    "table_class": {
+      "core": 1314,
+      "general": 16535
+    },
+    "ticker": {
+      "AAA": 731,
+      "ABB": 784,
+      "ACB": 1464,
+      "ACV": 753,
+      "ASM": 704,
+      "BAB": 715,
+      "BAF": 479,
+      "BID": 1276,
+      "BSR": 579,
+      "BVH": 1056,
+      "CEO": 703,
+      "CRE": 716,
+      "CTG": 1217,
+      "DBC": 680,
+      "DCM": 746,
+      "DIG": 918,
+      "DLG": 892,
+      "DNH": 566,
+      "DPM": 732,
+      "DTK": 712,
+      "DXG": 829,
+      "DXS": 438,
+      "EIB": 159
+    },
+    "value_column_confidence": {
+      "high": 15264,
+      "medium": 2585
+    }
+  },
+  "requested_sample_size": 160,
+  "sample_strata": {
+    "report_type": {
+      "aggregated": 17,
+      "consolidated": 72,
+      "separate": 71
+    },
+    "report_year": {
+      "2015": 15,
+      "2016": 14,
+      "2017": 14,
+      "2018": 14,
+      "2019": 15,
+      "2020": 14,
+      "2021": 15,
+      "2022": 15,
+      "2023": 15,
+      "2024": 14,
+      "2025": 15
+    },
+    "table_class": {
+      "core": 80,
+      "general": 80
+    },
+    "ticker": {
+      "AAA": 7,
+      "ABB": 7,
+      "ACB": 7,
+      "ACV": 9,
+      "ASM": 6,
+      "BAB": 7,
+      "BAF": 6,
+      "BID": 7,
+      "BSR": 7,
+      "BVH": 7,
+      "CEO": 7,
+      "CRE": 7,
+      "CTG": 7,
+      "DBC": 7,
+      "DCM": 7,
+      "DIG": 7,
+      "DLG": 6,
+      "DNH": 6,
+      "DPM": 7,
+      "DTK": 9,
+      "DXG": 7,
+      "DXS": 7,
+      "EIB": 6
+    },
+    "value_column_confidence": {
+      "high": 81,
+      "medium": 79
+    }
+  },
+  "sampled_manifest_rows": 2783,
+  "sampled_sources": 119,
+  "sampled_tables": 160,
+  "seed": "vifinqa-phase2-content-audit-v1",
+  "uncovered_strata": {}
+}

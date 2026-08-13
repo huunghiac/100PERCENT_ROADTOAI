@@ -1,0 +1,8 @@
+BÁO CÁO TÌNH HÌNH TÀI CHÍNH HỢP NHẤT
+Đơn vị: Triệu VND
+<table>
+  <tr><th rowspan="2">Chỉ tiêu</th><th colspan="2">Tại ngày</th></tr>
+  <tr><th>31.12.2023</th><th>31.12.2022</th></tr>
+  <tr><td>Tiền mặt</td><td>6.909.300</td><td>8.460.892</td></tr>
+  <tr><td>Tổng tài sản</td><td>718.794.589</td><td>607.875.185</td></tr>
+</table>
