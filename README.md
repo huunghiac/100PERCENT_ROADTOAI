@@ -48,17 +48,6 @@ Road-to-AI/
   3. Xử lý nhiễu OCR (gộp dòng rớt chữ, lệch cột).
   4. Đảm bảo format CSV sinh ra giống với `data/mock_csv/`.
 
-**Chạy extractor:**
-```bash
-# Bóc toàn bộ kho OCR -> data/processed_csv/
-python src/data_extractor.py --clean
-
-# Smoke test nhanh trên N file đầu
-python src/data_extractor.py --limit 3 --processed-dir /tmp/vifinqa_csv --clean
-```
-
-Extractor chuẩn hóa schema thành `Chi_tieu,Gia_tri,Don_vi`; số tiền VND/triệu đồng/nghìn đồng được quy về `Ty dong`. Báo cáo riêng giữ tên mock-compatible như `AAA_2015_BangCanDoiKeToan.csv`, còn báo cáo hợp nhất thêm hậu tố `_HopNhat` để tránh ghi đè.
-
 ---
 
 ### 👤 Khánh Ngọc: Truy hồi (Retrieval Engineer)
