@@ -1,0 +1,7 @@
+BÁO CÁO KẾT QUẢ HOẠT ĐỘNG KINH DOANH
+Đơn vị tính: Triệu đồng
+<table>
+  <tr><th>Chỉ tiêu</th><th>Mã số</th><th>Thuyết minh</th><th>Năm 2023</th><th>Năm 2022</th></tr>
+  <tr><td>Doanh thu thuần</td><td>10</td><td>18</td><td>1.234.567</td><td>900.000</td></tr>
+  <tr><td>Lợi nhuận sau thuế</td><td>60</td><td>25</td><td>(12.500)</td><td>10.250</td></tr>
+</table>

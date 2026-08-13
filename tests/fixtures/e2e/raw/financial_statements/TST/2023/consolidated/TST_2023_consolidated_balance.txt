@@ -1,0 +1,57 @@
+BẢNG CÂN ĐỐI KẾ TOÁN HỢP NHẤT
+Đơn vị tính: Triệu đồng
+<table>
+  <tr>
+    <th rowspan="2">Chỉ tiêu</th>
+    <th rowspan="2">Mã số</th>
+    <th colspan="2">Tại ngày</th>
+  </tr>
+  <tr>
+    <th>31/12/2023</th>
+    <th>01/01/2023</th>
+  </tr>
+  <tr>
+    <td>Tiền và các khoản tương đương tiền</td>
+    <td>110</td>
+    <td>1.250,50</td>
+    <td>1.100,25</td>
+  </tr>
+  <tr>
+    <td>Dự phòng giảm giá hàng tồn kho</td>
+    <td>149</td>
+    <td>(325,75)</td>
+    <td>(300,00)</td>
+  </tr>
+</table>
+
+BẢNG CÂN ĐỐI KẾ TOÁN HỢP NHẤT (TIẾP THEO)
+Đơn vị tính: Triệu đồng
+<table>
+  <tr>
+    <th rowspan="2">Chỉ tiêu</th>
+    <th rowspan="2">Mã số</th>
+    <th colspan="2">Tại ngày</th>
+  </tr>
+  <tr>
+    <th>31/12/2023</th>
+    <th>01/01/2023</th>
+  </tr>
+  <tr>
+    <td>Dự phòng giảm giá hàng tồn kho</td>
+    <td>149</td>
+    <td>(325,75)</td>
+    <td>(300,00)</td>
+  </tr>
+  <tr>
+    <td>Nợ phải trả</td>
+    <td>300</td>
+    <td>845,50</td>
+    <td>810,00</td>
+  </tr>
+  <tr>
+    <td>Vốn chủ sở hữu</td>
+    <td>400</td>
+    <td>1.080,25</td>
+    <td>1.000,00</td>
+  </tr>
+</table>

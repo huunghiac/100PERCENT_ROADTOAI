@@ -1,0 +1,14 @@
+<!-- Verbatim reduced rows from ACV 2022 consolidated source tables #5 and #6. -->
+<h2>BÁO CÁO KẾT QUẢ HOẠT ĐỘNG KINH DOANH HỢP NHẤT cho năm tài chính kết thúc ngày 31 tháng 12 năm 2022</h2>
+<table>
+<tr><td>CHỈ TIÊU</td><td>Mã số</td><td>Thuyết minh</td><td>Năm nay VND</td><td>Năm trước VND</td></tr>
+<tr><td>1. Doanh thu về bán hàng và cung cấp dịch vụ</td><td>01</td><td>23.1</td><td>13.899.939.268.464</td><td>4.774.331.114.808</td></tr>
+<tr><td>18. Lợi nhuận sau thuế TNDN</td><td>60</td><td></td><td>7.090.008.317.190</td><td>789.599.471.010</td></tr>
+</table>
+
+<h2>BÁO CÁO KẾT QUẢ HOẠT ĐỘNG KINH DOANH HỢP NHẤT (tiếp theo) cho năm tài chính kết thúc ngày 31 tháng 12 năm 2022</h2>
+<table>
+<tr><td>CHÌ TIÊU</td><td>Mã số</td><td>Thuyết minh</td><td>Năm nay VND</td><td>Năm trước VND</td></tr>
+<tr><td>20. Lợi nhuận (lỗ) sau thuế của cổ đông không kiểm soát</td><td>62</td><td></td><td>5.538.999.343</td><td>(169.975.597)</td></tr>
+<tr><td>22. Lãi suy giảm trên cổ phiếu</td><td>71</td><td>22.5</td><td>2.845</td><td>186</td></tr>
+</table>

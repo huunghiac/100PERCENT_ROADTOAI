@@ -1,0 +1,9 @@
+<!-- Verbatim reduced table #29 from EIB 2016 consolidated. -->
+<h2>9. Dự phòng rủi ro cho vay khách hàng</h2>
+<p>Đơn vị: Triệu VND</p>
+<table>
+  <tr><th></th><th>2016Triệu VND</th><th>2015Triệu VND</th></tr>
+  <tr><td>Số dư đầu năm(Hoàn nhập)/trích lập dự phòng trong năm (Thuyết minh số 28)</td><td>628.462(8.677)</td><td>618.29410.168</td></tr>
+  <tr><td>Chi phí dự phòng bổ sung</td><td>12.500</td><td>10.250</td></tr>
+  <tr><td>Số dư cuối năm</td><td>619.785</td><td>628.462</td></tr>
+</table>
