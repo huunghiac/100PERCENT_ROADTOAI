@@ -1,0 +1,9 @@
+<!-- Verbatim reduced table #81 from ACB 2023 consolidated. -->
+<h2>Chi phí thuế TNDN hiện hành khi được tính theo thuế suất hiện hành 20% như sau:</h2>
+<table>
+  <tr><th></th><th>Năm 2023Triệu VND</th><th>Năm 2022Triệu VND</th></tr>
+  <tr><td>Lợi nhuận trước thuế TNDNCác khoản mục điều chỉnh:</td><td>20.067.999</td><td>17.114.208</td></tr>
+  <tr><td>Cộng (+) Chi phí không được khấu trừ khi xác định thu nhập chịu thuế</td><td>159.507</td><td>4.552</td></tr>
+  <tr><td>Chi phí thuế TNDN tính trên thu nhập chịu thuế kỳ hiện hànhĐiều chỉnh chi phí thuế TNDN của các năm trước</td><td>3.986.1146.908</td><td>3.445.097514</td></tr>
+  <tr><td>Tổng chi phí thuế TNDN hiện hành</td><td>3.993.022</td><td>3.445.611</td></tr>
+</table>

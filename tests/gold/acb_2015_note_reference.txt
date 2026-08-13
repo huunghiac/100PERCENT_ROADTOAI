@@ -1,0 +1,8 @@
+<!-- Verbatim reduced from ACB 2015 consolidated note table #101. -->
+<h2>36. Chi phí dự phòng rủi ro tín dụng</h2>
+<p>Đơn vị tính: Triệu VND</p>
+<table>
+  <tr><th></th><th>2015Triệu VND</th><th>2014Triệu VND (phân loại lại)</th></tr>
+  <tr><td>Trích lập dự phòng cụ thể tiền gửi và cho vay các TCTD khác (Thuyết minh 7(iii))</td><td>191.018</td><td>328.045</td></tr>
+  <tr><td>Trích lập dự phòng chung cho vay khách hàng (Thuyết minh 11(i))</td><td>131.667</td><td>56.150</td></tr>
+</table>

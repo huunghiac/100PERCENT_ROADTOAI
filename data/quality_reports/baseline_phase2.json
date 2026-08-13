@@ -1,0 +1,786 @@
+{
+  "case_results": [
+    {
+      "actual_accept": true,
+      "actual_column": 1,
+      "actual_slug": "511PhaiTraNganHanKhac",
+      "actual_unit": "VND",
+      "case_id": "aaa_2015_attached_vnd_note",
+      "classification_reason": "",
+      "conversion_reason": "",
+      "converted": true,
+      "expected_accept": true,
+      "expected_column": 1,
+      "expected_slug": "511PhaiTraNganHanKhac",
+      "expected_unit": "VND",
+      "key_rows_correct": 2,
+      "key_rows_total": 2,
+      "source": "aaa_2015_attached_vnd.txt",
+      "table_index": 0,
+      "value_column_confidence": "legacy",
+      "value_column_header": "31/12/2015VND",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "31/12/2015VND"
+    },
+    {
+      "actual_accept": false,
+      "actual_column": null,
+      "actual_slug": "BangCanDoiKeToan",
+      "actual_unit": "",
+      "case_id": "aaa_2015_toc",
+      "classification_reason": "table_of_contents",
+      "conversion_reason": "table_of_contents",
+      "converted": false,
+      "expected_accept": false,
+      "expected_column": null,
+      "expected_slug": null,
+      "expected_unit": null,
+      "key_rows_correct": 0,
+      "key_rows_total": 0,
+      "source": "aaa_2015_consolidated.txt",
+      "table_index": 0,
+      "value_column_confidence": "legacy",
+      "value_column_header": "",
+      "value_column_method": "legacy_none",
+      "value_column_period": ""
+    },
+    {
+      "actual_accept": true,
+      "actual_column": 3,
+      "actual_slug": "BangCanDoiKeToan",
+      "actual_unit": "VND",
+      "case_id": "aaa_2015_balance_part_1",
+      "classification_reason": "",
+      "conversion_reason": "",
+      "converted": true,
+      "expected_accept": true,
+      "expected_column": 3,
+      "expected_slug": "BangCanDoiKeToan",
+      "expected_unit": "VND",
+      "key_rows_correct": 2,
+      "key_rows_total": 2,
+      "source": "aaa_2015_consolidated.txt",
+      "table_index": 1,
+      "value_column_confidence": "legacy",
+      "value_column_header": "31/12/2015",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "31/12/2015"
+    },
+    {
+      "actual_accept": true,
+      "actual_column": 3,
+      "actual_slug": "BangCanDoiKeToan",
+      "actual_unit": "VND",
+      "case_id": "aaa_2015_balance_part_2",
+      "classification_reason": "",
+      "conversion_reason": "",
+      "converted": true,
+      "expected_accept": true,
+      "expected_column": 3,
+      "expected_slug": "BangCanDoiKeToan",
+      "expected_unit": "VND",
+      "key_rows_correct": 2,
+      "key_rows_total": 2,
+      "source": "aaa_2015_consolidated.txt",
+      "table_index": 2,
+      "value_column_confidence": "legacy",
+      "value_column_header": "31/12/2015",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "31/12/2015"
+    },
+    {
+      "actual_accept": true,
+      "actual_column": 3,
+      "actual_slug": "BaoCaoKetQuaKinhDoanh",
+      "actual_unit": "VND",
+      "case_id": "aaa_2015_income",
+      "classification_reason": "",
+      "conversion_reason": "",
+      "converted": true,
+      "expected_accept": true,
+      "expected_column": 3,
+      "expected_slug": "BaoCaoKetQuaKinhDoanh",
+      "expected_unit": "VND",
+      "key_rows_correct": 2,
+      "key_rows_total": 2,
+      "source": "aaa_2015_consolidated.txt",
+      "table_index": 3,
+      "value_column_confidence": "legacy",
+      "value_column_header": "Năm 2015",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "Năm 2015"
+    },
+    {
+      "actual_accept": true,
+      "actual_column": 3,
+      "actual_slug": "BaoCaoKetQuaKinhDoanh",
+      "actual_unit": "",
+      "case_id": "aaa_2018_income_missing_unit",
+      "classification_reason": "",
+      "conversion_reason": "",
+      "converted": true,
+      "expected_accept": true,
+      "expected_column": 3,
+      "expected_slug": "BaoCaoKetQuaKinhDoanh",
+      "expected_unit": "",
+      "key_rows_correct": 2,
+      "key_rows_total": 2,
+      "source": "aaa_2018_missing_unit.txt",
+      "table_index": 0,
+      "value_column_confidence": "legacy",
+      "value_column_header": "Năm nay",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "Năm nay"
+    },
+    {
+      "actual_accept": true,
+      "actual_column": 1,
+      "actual_slug": "36ChiPhiDuPhongRuiRoTinDung",
+      "actual_unit": "Trieu VND",
+      "case_id": "acb_2015_credit_provision_note",
+      "classification_reason": "",
+      "conversion_reason": "",
+      "converted": true,
+      "expected_accept": true,
+      "expected_column": 1,
+      "expected_slug": "36ChiPhiDuPhongRuiRoTinDung",
+      "expected_unit": "Trieu VND",
+      "key_rows_correct": 2,
+      "key_rows_total": 2,
+      "source": "acb_2015_note_reference.txt",
+      "table_index": 0,
+      "value_column_confidence": "legacy",
+      "value_column_header": "2015Triệu VND",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "2015Triệu VND"
+    },
+    {
+      "actual_accept": false,
+      "actual_column": null,
+      "actual_slug": "BaoCaoChinh",
+      "actual_unit": "",
+      "case_id": "acb_2023_staff",
+      "classification_reason": "table_of_contents",
+      "conversion_reason": "table_of_contents",
+      "converted": false,
+      "expected_accept": false,
+      "expected_column": null,
+      "expected_slug": null,
+      "expected_unit": null,
+      "key_rows_correct": 0,
+      "key_rows_total": 0,
+      "source": "acb_2023_consolidated.txt",
+      "table_index": 0,
+      "value_column_confidence": "legacy",
+      "value_column_header": "",
+      "value_column_method": "legacy_none",
+      "value_column_period": ""
+    },
+    {
+      "actual_accept": true,
+      "actual_column": 3,
+      "actual_slug": "BaoCaoTinhHinhTaiChinh",
+      "actual_unit": "Trieu VND",
+      "case_id": "acb_2023_balance_part_1",
+      "classification_reason": "",
+      "conversion_reason": "",
+      "converted": true,
+      "expected_accept": true,
+      "expected_column": 3,
+      "expected_slug": "BaoCaoTinhHinhTaiChinh",
+      "expected_unit": "Trieu VND",
+      "key_rows_correct": 3,
+      "key_rows_total": 3,
+      "source": "acb_2023_consolidated.txt",
+      "table_index": 1,
+      "value_column_confidence": "legacy",
+      "value_column_header": "Tại ngày 31.12.2023 Triệu VND",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "Tại ngày 31.12.2023 Triệu VND"
+    },
+    {
+      "actual_accept": true,
+      "actual_column": 3,
+      "actual_slug": "BaoCaoTinhHinhTaiChinh",
+      "actual_unit": "Trieu VND",
+      "case_id": "acb_2023_balance_part_2",
+      "classification_reason": "",
+      "conversion_reason": "",
+      "converted": true,
+      "expected_accept": true,
+      "expected_column": 3,
+      "expected_slug": "BaoCaoTinhHinhTaiChinh",
+      "expected_unit": "Trieu VND",
+      "key_rows_correct": 2,
+      "key_rows_total": 2,
+      "source": "acb_2023_consolidated.txt",
+      "table_index": 2,
+      "value_column_confidence": "legacy",
+      "value_column_header": "31.12.2023",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "31.12.2023"
+    },
+    {
+      "actual_accept": true,
+      "actual_column": 2,
+      "actual_slug": "BaoCaoLuuChuyenTienTe",
+      "actual_unit": "Trieu VND",
+      "case_id": "acb_2023_direct_cashflow",
+      "classification_reason": "",
+      "conversion_reason": "",
+      "converted": true,
+      "expected_accept": true,
+      "expected_column": 2,
+      "expected_slug": "BaoCaoLuuChuyenTienTe",
+      "expected_unit": "Trieu VND",
+      "key_rows_correct": 2,
+      "key_rows_total": 2,
+      "source": "acb_2023_consolidated.txt",
+      "table_index": 3,
+      "value_column_confidence": "legacy",
+      "value_column_header": "Năm 2023",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "Năm 2023"
+    },
+    {
+      "actual_accept": false,
+      "actual_column": 0,
+      "actual_slug": "3TomTatCacChinhSachKeToanChuYeu",
+      "actual_unit": "",
+      "case_id": "acb_2023_policy_group_codes",
+      "classification_reason": "no_financial_context",
+      "conversion_reason": "no_financial_context",
+      "converted": false,
+      "expected_accept": false,
+      "expected_column": null,
+      "expected_slug": null,
+      "expected_unit": null,
+      "key_rows_correct": 0,
+      "key_rows_total": 0,
+      "source": "acb_2023_policy_codes.txt",
+      "table_index": 0,
+      "value_column_confidence": "legacy",
+      "value_column_header": "Nhóm",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "Nhóm"
+    },
+    {
+      "actual_accept": true,
+      "actual_column": 3,
+      "actual_slug": "BaoCaoTinhHinhTaiChinh",
+      "actual_unit": "Trieu VND",
+      "case_id": "acb_2023_separate_balance_part_1",
+      "classification_reason": "",
+      "conversion_reason": "",
+      "converted": true,
+      "expected_accept": true,
+      "expected_column": 3,
+      "expected_slug": "BaoCaoTinhHinhTaiChinh",
+      "expected_unit": "Trieu VND",
+      "key_rows_correct": 2,
+      "key_rows_total": 2,
+      "source": "acb_2023_separate.txt",
+      "table_index": 0,
+      "value_column_confidence": "legacy",
+      "value_column_header": "31.12.2023",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "31.12.2023"
+    },
+    {
+      "actual_accept": true,
+      "actual_column": 3,
+      "actual_slug": "BaoCaoTinhHinhTaiChinh",
+      "actual_unit": "Trieu VND",
+      "case_id": "acb_2023_separate_balance_part_2",
+      "classification_reason": "",
+      "conversion_reason": "",
+      "converted": true,
+      "expected_accept": true,
+      "expected_column": 3,
+      "expected_slug": "BaoCaoTinhHinhTaiChinh",
+      "expected_unit": "Trieu VND",
+      "key_rows_correct": 2,
+      "key_rows_total": 2,
+      "source": "acb_2023_separate.txt",
+      "table_index": 1,
+      "value_column_confidence": "legacy",
+      "value_column_header": "31.12.2023",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "31.12.2023"
+    },
+    {
+      "actual_accept": true,
+      "actual_column": 1,
+      "actual_slug": "ChiPhiThueTndnHienHanhKhiDuocTheoThue",
+      "actual_unit": "Trieu VND",
+      "case_id": "acb_2023_tax_unit_conflict",
+      "classification_reason": "",
+      "conversion_reason": "",
+      "converted": true,
+      "expected_accept": true,
+      "expected_column": 1,
+      "expected_slug": "ChiPhiThueTndnHienHanhKhiDuocTheoThue",
+      "expected_unit": "Trieu VND",
+      "key_rows_correct": 2,
+      "key_rows_total": 2,
+      "source": "acb_2023_tax_unit_conflict.txt",
+      "table_index": 0,
+      "value_column_confidence": "legacy",
+      "value_column_header": "Năm 2023Triệu VND 3.986.1146.908",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "Năm 2023Triệu VND 3.986.1146.908"
+    },
+    {
+      "actual_accept": false,
+      "actual_column": null,
+      "actual_slug": "CacThanhVienHoiDongQuanTriTrongVaVao",
+      "actual_unit": "",
+      "case_id": "acv_2022_staff",
+      "classification_reason": "insufficient_numeric_rows",
+      "conversion_reason": "insufficient_numeric_rows",
+      "converted": false,
+      "expected_accept": false,
+      "expected_column": null,
+      "expected_slug": null,
+      "expected_unit": null,
+      "key_rows_correct": 0,
+      "key_rows_total": 0,
+      "source": "acv_2022_aggregated.txt",
+      "table_index": 0,
+      "value_column_confidence": "legacy",
+      "value_column_header": "",
+      "value_column_method": "legacy_none",
+      "value_column_period": ""
+    },
+    {
+      "actual_accept": true,
+      "actual_column": 3,
+      "actual_slug": "BangCanDoiKeToan",
+      "actual_unit": "VND",
+      "case_id": "acv_2022_balance_part_1",
+      "classification_reason": "",
+      "conversion_reason": "",
+      "converted": true,
+      "expected_accept": true,
+      "expected_column": 3,
+      "expected_slug": "BangCanDoiKeToan",
+      "expected_unit": "VND",
+      "key_rows_correct": 2,
+      "key_rows_total": 2,
+      "source": "acv_2022_aggregated.txt",
+      "table_index": 1,
+      "value_column_confidence": "legacy",
+      "value_column_header": "Số cuối năm VND",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "Số cuối năm VND"
+    },
+    {
+      "actual_accept": true,
+      "actual_column": 3,
+      "actual_slug": "BangCanDoiKeToan",
+      "actual_unit": "VND",
+      "case_id": "acv_2022_balance_part_2",
+      "classification_reason": "",
+      "conversion_reason": "",
+      "converted": true,
+      "expected_accept": true,
+      "expected_column": 3,
+      "expected_slug": "BangCanDoiKeToan",
+      "expected_unit": "VND",
+      "key_rows_correct": 2,
+      "key_rows_total": 2,
+      "source": "acv_2022_aggregated.txt",
+      "table_index": 2,
+      "value_column_confidence": "legacy",
+      "value_column_header": "Số cuối năm VND",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "Số cuối năm VND"
+    },
+    {
+      "actual_accept": true,
+      "actual_column": null,
+      "actual_slug": "BaoCaoKetQuaKinhDoanh",
+      "actual_unit": "",
+      "case_id": "acv_2022_income_ocr_split",
+      "classification_reason": "",
+      "conversion_reason": "no_reliable_value_column",
+      "converted": false,
+      "expected_accept": true,
+      "expected_column": 3,
+      "expected_slug": "BaoCaoKetQuaKinhDoanh",
+      "expected_unit": "VND",
+      "key_rows_correct": 0,
+      "key_rows_total": 3,
+      "source": "acv_2022_aggregated.txt",
+      "table_index": 3,
+      "value_column_confidence": "legacy",
+      "value_column_header": "",
+      "value_column_method": "legacy_none",
+      "value_column_period": ""
+    },
+    {
+      "actual_accept": true,
+      "actual_column": 2,
+      "actual_slug": "BaoCaoLuuChuyenTienTe",
+      "actual_unit": "VND",
+      "case_id": "acv_2022_cashflow_part_1",
+      "classification_reason": "",
+      "conversion_reason": "",
+      "converted": true,
+      "expected_accept": true,
+      "expected_column": 2,
+      "expected_slug": "BaoCaoLuuChuyenTienTe",
+      "expected_unit": "VND",
+      "key_rows_correct": 2,
+      "key_rows_total": 2,
+      "source": "acv_2022_aggregated.txt",
+      "table_index": 4,
+      "value_column_confidence": "legacy",
+      "value_column_header": "Năm nay",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "Năm nay"
+    },
+    {
+      "actual_accept": true,
+      "actual_column": 2,
+      "actual_slug": "BaoCaoLuuChuyenTienTe",
+      "actual_unit": "VND",
+      "case_id": "acv_2022_cashflow_part_2",
+      "classification_reason": "",
+      "conversion_reason": "",
+      "converted": true,
+      "expected_accept": true,
+      "expected_column": 2,
+      "expected_slug": "BaoCaoLuuChuyenTienTe",
+      "expected_unit": "VND",
+      "key_rows_correct": 2,
+      "key_rows_total": 2,
+      "source": "acv_2022_aggregated.txt",
+      "table_index": 5,
+      "value_column_confidence": "legacy",
+      "value_column_header": "Năm nay",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "Năm nay"
+    },
+    {
+      "actual_accept": true,
+      "actual_column": 3,
+      "actual_slug": "BaoCaoKetQuaKinhDoanh",
+      "actual_unit": "VND",
+      "case_id": "acv_2022_consolidated_income_part_1",
+      "classification_reason": "",
+      "conversion_reason": "",
+      "converted": true,
+      "expected_accept": true,
+      "expected_column": 3,
+      "expected_slug": "BaoCaoKetQuaKinhDoanh",
+      "expected_unit": "VND",
+      "key_rows_correct": 2,
+      "key_rows_total": 2,
+      "source": "acv_2022_consolidated_continuation.txt",
+      "table_index": 0,
+      "value_column_confidence": "legacy",
+      "value_column_header": "Năm nay VND",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "Năm nay VND"
+    },
+    {
+      "actual_accept": true,
+      "actual_column": 3,
+      "actual_slug": "BaoCaoKetQuaKinhDoanh",
+      "actual_unit": "mixed",
+      "case_id": "acv_2022_consolidated_income_part_2",
+      "classification_reason": "",
+      "conversion_reason": "",
+      "converted": true,
+      "expected_accept": true,
+      "expected_column": 3,
+      "expected_slug": "BaoCaoKetQuaKinhDoanh",
+      "expected_unit": "mixed",
+      "key_rows_correct": 2,
+      "key_rows_total": 2,
+      "source": "acv_2022_consolidated_continuation.txt",
+      "table_index": 1,
+      "value_column_confidence": "legacy",
+      "value_column_header": "Năm nay VND",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "Năm nay VND"
+    },
+    {
+      "actual_accept": true,
+      "actual_column": 1,
+      "actual_slug": "9DuPhongRuiRoChoVayKhachHang",
+      "actual_unit": "Trieu VND",
+      "case_id": "eib_2016_ocr_attached_parentheses",
+      "classification_reason": "",
+      "conversion_reason": "",
+      "converted": true,
+      "expected_accept": true,
+      "expected_column": 1,
+      "expected_slug": "9DuPhongRuiRoChoVayKhachHang",
+      "expected_unit": "Trieu VND",
+      "key_rows_correct": 1,
+      "key_rows_total": 1,
+      "source": "eib_2016_ocr_attached_parentheses.txt",
+      "table_index": 0,
+      "value_column_confidence": "legacy",
+      "value_column_header": "2016Triệu VND 628.462(8.677)",
+      "value_column_method": "legacy_scored_heuristic",
+      "value_column_period": "2016Triệu VND 628.462(8.677)"
+    }
+  ],
+  "counts": {
+    "classification_fn": 0,
+    "classification_fp": 0,
+    "classification_tn": 4,
+    "classification_tp": 20,
+    "covered_core_logical_tables": 9,
+    "expected_accepted_tables": 20,
+    "expected_core_logical_tables": 10,
+    "expected_logical_tables": 14,
+    "expected_rejected_tables": 4,
+    "fragmentation_excess_files": 1,
+    "fragmented_logical_tables": 1,
+    "gold_sources": 11,
+    "known_units_correct": 18,
+    "known_units_total": 19,
+    "numeric_values_correct": 38,
+    "numeric_values_total": 41,
+    "raw_tables": 24,
+    "unknown_units_correct": 1,
+    "unknown_units_total": 1,
+    "value_columns_correct": 19,
+    "value_columns_total": 20,
+    "wrong_merge_outputs": 0
+  },
+  "failures": {
+    "classification": [],
+    "fragmented": {
+      "ACB_2023_BaoCaoTinhHinhTaiChinh_separate": [
+        "acb_2023_separate.txt#output-0",
+        "acb_2023_separate.txt#output-1"
+      ]
+    },
+    "numeric": [
+      "acv_2022_income_ocr_split"
+    ],
+    "slug": [],
+    "unit": [
+      "acv_2022_income_ocr_split"
+    ],
+    "value_column": [
+      "acv_2022_income_ocr_split"
+    ],
+    "wrong_merges": []
+  },
+  "gold_cases_path": "C:/Users/HONG HA/Downloads/100PERCENT_ROADTOAI-main/100PERCENT_ROADTOAI-main/tests/gold_cases.jsonl",
+  "gold_dir": "C:/Users/HONG HA/Downloads/100PERCENT_ROADTOAI-main/100PERCENT_ROADTOAI-main/tests/gold",
+  "metrics": {
+    "core_table_coverage": 90.0,
+    "numeric_value_accuracy": 92.6829,
+    "table_classification_precision": 100.0,
+    "table_classification_recall": 100.0,
+    "table_slug_accuracy": 100.0,
+    "unit_extraction_precision": 100.0,
+    "unit_extraction_recall": 94.7368,
+    "unknown_unit_accuracy": 100.0,
+    "value_column_accuracy": 95.0,
+    "value_column_header_accuracy": 95.0,
+    "value_period_accuracy": 95.0
+  },
+  "mode": "legacy",
+  "output_mappings": [
+    {
+      "logical_table_ids": [
+        "AAA_2015_511PhaiTraNganHanKhac_consolidated"
+      ],
+      "matched_cases": [
+        "aaa_2015_attached_vnd_note"
+      ],
+      "output": "aaa_2015_attached_vnd.txt#output-0",
+      "slug": "511PhaiTraNganHanKhac",
+      "source_table_indices": [
+        0
+      ]
+    },
+    {
+      "logical_table_ids": [
+        "AAA_2015_BangCanDoiKeToan_consolidated"
+      ],
+      "matched_cases": [
+        "aaa_2015_balance_part_1",
+        "aaa_2015_balance_part_2"
+      ],
+      "output": "aaa_2015_consolidated.txt#output-0",
+      "slug": "BangCanDoiKeToan",
+      "source_table_indices": [
+        1,
+        2
+      ]
+    },
+    {
+      "logical_table_ids": [
+        "AAA_2015_BaoCaoKetQuaKinhDoanh_consolidated"
+      ],
+      "matched_cases": [
+        "aaa_2015_income"
+      ],
+      "output": "aaa_2015_consolidated.txt#output-1",
+      "slug": "BaoCaoKetQuaKinhDoanh",
+      "source_table_indices": [
+        3
+      ]
+    },
+    {
+      "logical_table_ids": [
+        "AAA_2018_BaoCaoKetQuaKinhDoanh_separate"
+      ],
+      "matched_cases": [
+        "aaa_2018_income_missing_unit"
+      ],
+      "output": "aaa_2018_missing_unit.txt#output-0",
+      "slug": "BaoCaoKetQuaKinhDoanh",
+      "source_table_indices": [
+        0
+      ]
+    },
+    {
+      "logical_table_ids": [
+        "ACB_2015_ChiPhiDuPhongRuiRoTinDung_note"
+      ],
+      "matched_cases": [
+        "acb_2015_credit_provision_note"
+      ],
+      "output": "acb_2015_note_reference.txt#output-0",
+      "slug": "36ChiPhiDuPhongRuiRoTinDung",
+      "source_table_indices": [
+        0
+      ]
+    },
+    {
+      "logical_table_ids": [
+        "ACB_2023_BaoCaoTinhHinhTaiChinh_consolidated"
+      ],
+      "matched_cases": [
+        "acb_2023_balance_part_1",
+        "acb_2023_balance_part_2"
+      ],
+      "output": "acb_2023_consolidated.txt#output-0",
+      "slug": "BaoCaoTinhHinhTaiChinh",
+      "source_table_indices": [
+        1,
+        2
+      ]
+    },
+    {
+      "logical_table_ids": [
+        "ACB_2023_BaoCaoLuuChuyenTienTe_direct_consolidated"
+      ],
+      "matched_cases": [
+        "acb_2023_direct_cashflow"
+      ],
+      "output": "acb_2023_consolidated.txt#output-1",
+      "slug": "BaoCaoLuuChuyenTienTe",
+      "source_table_indices": [
+        3
+      ]
+    },
+    {
+      "logical_table_ids": [
+        "ACB_2023_BaoCaoTinhHinhTaiChinh_separate"
+      ],
+      "matched_cases": [
+        "acb_2023_separate_balance_part_1"
+      ],
+      "output": "acb_2023_separate.txt#output-0",
+      "slug": "BaoCaoTinhHinhTaiChinh",
+      "source_table_indices": [
+        0
+      ]
+    },
+    {
+      "logical_table_ids": [
+        "ACB_2023_BaoCaoTinhHinhTaiChinh_separate"
+      ],
+      "matched_cases": [
+        "acb_2023_separate_balance_part_2"
+      ],
+      "output": "acb_2023_separate.txt#output-1",
+      "slug": "BaoCaoTinhHinhTaiChinh",
+      "source_table_indices": [
+        1
+      ]
+    },
+    {
+      "logical_table_ids": [
+        "ACB_2023_ChiPhiThueTNDN_consolidated"
+      ],
+      "matched_cases": [
+        "acb_2023_tax_unit_conflict"
+      ],
+      "output": "acb_2023_tax_unit_conflict.txt#output-0",
+      "slug": "ChiPhiThueTndnHienHanhKhiDuocTheoThue",
+      "source_table_indices": [
+        0
+      ]
+    },
+    {
+      "logical_table_ids": [
+        "ACV_2022_BangCanDoiKeToan_aggregated"
+      ],
+      "matched_cases": [
+        "acv_2022_balance_part_1",
+        "acv_2022_balance_part_2"
+      ],
+      "output": "acv_2022_aggregated.txt#output-0",
+      "slug": "BangCanDoiKeToan",
+      "source_table_indices": [
+        1,
+        2
+      ]
+    },
+    {
+      "logical_table_ids": [
+        "ACV_2022_BaoCaoLuuChuyenTienTe_aggregated"
+      ],
+      "matched_cases": [
+        "acv_2022_cashflow_part_1",
+        "acv_2022_cashflow_part_2"
+      ],
+      "output": "acv_2022_aggregated.txt#output-1",
+      "slug": "BaoCaoLuuChuyenTienTe",
+      "source_table_indices": [
+        4,
+        5
+      ]
+    },
+    {
+      "logical_table_ids": [
+        "ACV_2022_BaoCaoKetQuaKinhDoanh_consolidated"
+      ],
+      "matched_cases": [
+        "acv_2022_consolidated_income_part_1",
+        "acv_2022_consolidated_income_part_2"
+      ],
+      "output": "acv_2022_consolidated_continuation.txt#output-0",
+      "slug": "BaoCaoKetQuaKinhDoanh",
+      "source_table_indices": [
+        0,
+        1
+      ]
+    },
+    {
+      "logical_table_ids": [
+        "EIB_2016_DuPhongRuiRo_consolidated"
+      ],
+      "matched_cases": [
+        "eib_2016_ocr_attached_parentheses"
+      ],
+      "output": "eib_2016_ocr_attached_parentheses.txt#output-0",
+      "slug": "9DuPhongRuiRoChoVayKhachHang",
+      "source_table_indices": [
+        0
+      ]
+    }
+  ]
+}

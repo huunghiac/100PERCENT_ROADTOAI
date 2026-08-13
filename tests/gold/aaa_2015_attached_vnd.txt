@@ -1,0 +1,8 @@
+<!-- Reduced from AAA 2015 note 5.11; % exists nearby but selected amount header owns VND. -->
+<p>Tỷ lệ tương ứng trong thuyết minh là 32,22%.</p>
+<h2>5.11 PHẢI TRẢ NGẮN HẠN KHÁC</h2>
+<table>
+  <tr><th>Chỉ tiêu</th><th>31/12/2015VND</th><th>01/01/2015VND</th></tr>
+  <tr><td>Kinh phí công đoàn</td><td>123.949.400</td><td>114.500.000</td></tr>
+  <tr><td>Các khoản phải trả khác</td><td>88.500.000</td><td>75.200.000</td></tr>
+</table>

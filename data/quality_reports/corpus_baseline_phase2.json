@@ -1,0 +1,352 @@
+{
+  "schema_version": 1,
+  "phase": "phase2_baseline",
+  "audit_date": "2026-08-12",
+  "scope": {
+    "raw_root": "data/raw_vifinqa",
+    "manifest": "data/processed_csv/_manifest.jsonl",
+    "read_only_audit": true
+  },
+  "corpus": {
+    "txt_files": 443,
+    "txt_files_with_literal_table_tag": 443,
+    "txt_files_without_literal_table_tag": 0,
+    "literal_table_open_tags": 32753,
+    "literal_table_close_tags": 32753,
+    "beautifulsoup_top_level_nonempty_tables": 32744,
+    "literal_vs_parsed_delta": 9,
+    "files_with_literal_vs_parsed_delta": [
+      {
+        "source_txt": "data/raw_vifinqa/financial_statements/DXG/2017/DXG_financial_statements_2017_consolidated/DXG_financial_statements_2017_consolidated_extracted.txt",
+        "literal_tables": 107,
+        "beautifulsoup_tables": 106,
+        "delta": 1
+      },
+      {
+        "source_txt": "data/raw_vifinqa/financial_statements/DNH/2025/DNH_financial_statements_2025_separate/DNH_financial_statements_2025_separate_extracted.txt",
+        "literal_tables": 51,
+        "beautifulsoup_tables": 50,
+        "delta": 1
+      },
+      {
+        "source_txt": "data/raw_vifinqa/financial_statements/DCM/2025/DCM_financial_statements_2025_consolidated/DCM_financial_statements_2025_consolidated_extracted.txt",
+        "literal_tables": 56,
+        "beautifulsoup_tables": 54,
+        "delta": 2
+      },
+      {
+        "source_txt": "data/raw_vifinqa/financial_statements/DBC/2025/DBC_financial_statements_2025_separate/DBC_financial_statements_2025_separate_extracted.txt",
+        "literal_tables": 77,
+        "beautifulsoup_tables": 76,
+        "delta": 1
+      },
+      {
+        "source_txt": "data/raw_vifinqa/financial_statements/DBC/2021/DBC_financial_statements_2021_separate/DBC_financial_statements_2021_separate_extracted.txt",
+        "literal_tables": 60,
+        "beautifulsoup_tables": 59,
+        "delta": 1
+      },
+      {
+        "source_txt": "data/raw_vifinqa/financial_statements/BSR/2025/BSR_financial_statements_2025_consolidated/BSR_financial_statements_2025_consolidated_extracted.txt",
+        "literal_tables": 56,
+        "beautifulsoup_tables": 55,
+        "delta": 1
+      },
+      {
+        "source_txt": "data/raw_vifinqa/financial_statements/BSR/2017/BSR_financial_statements_2017_consolidated/BSR_financial_statements_2017_consolidated_extracted.txt",
+        "literal_tables": 49,
+        "beautifulsoup_tables": 48,
+        "delta": 1
+      },
+      {
+        "source_txt": "data/raw_vifinqa/financial_statements/ABB/2025/ABB_financial_statements_2025_consolidated/ABB_financial_statements_2025_consolidated_extracted.txt",
+        "literal_tables": 121,
+        "beautifulsoup_tables": 120,
+        "delta": 1
+      }
+    ]
+  },
+  "plain_text": {
+    "applicable": false,
+    "extractor_scan": {
+      "method": "extract_plain_text_tables after removing complete HTML table blocks",
+      "files_with_raw_blocks": 0,
+      "raw_blocks": 0,
+      "files_with_financial_blocks": 0,
+      "financial_blocks": 0,
+      "converted_tables": 0
+    },
+    "independent_scan": {
+      "method": "strip complete HTML table blocks, then require a contiguous pipe, tab, or multi-space run of at least 3 rows with at least 2 numeric rows",
+      "files_with_candidate_runs": 0,
+      "candidate_runs": 0
+    },
+    "conclusion": "No genuine plain-text table was found outside inline HTML tables in the current corpus. Keep unit fixtures, but corpus integration coverage is not applicable."
+  },
+  "manifest_exact": {
+    "records": 20348,
+    "unique_source_txt": 443,
+    "parser_counts": {
+      "html": 20348
+    },
+    "report_type_counts": {
+      "consolidated": 10763,
+      "separate": 9512,
+      "aggregated": 73
+    },
+    "aggregated_sources": {
+      "data/raw_vifinqa/financial_statements/ACV/2022/ACV_financial_statements_2022_aggregated/ACV_financial_statements_2022_aggregated_extracted.txt": 42,
+      "data/raw_vifinqa/financial_statements/DTK/2025/DTK_financial_statements_2025_aggregated/DTK_financial_statements_2025_aggregated_extracted.txt": 31
+    },
+    "warning_records": 14194,
+    "warning_entries": 20833,
+    "unique_warning_messages": 9447,
+    "warning_categories": {
+      "value_column_heuristic": {
+        "entries": 14325,
+        "records": 12643,
+        "note": "Continuation merges can retain multiple distinct heuristic messages in one manifest record."
+      },
+      "unit_not_reliably_detected": 2744,
+      "merged_continuation_table": 1380,
+      "continuation_without_preceding_table": 674,
+      "skipped_suspicious_ocr_numeric_concatenation": 136,
+      "merged_wrapped_label_before_value_row": 1323,
+      "merged_wrapped_label_after_value_row": 54,
+      "removed_continuation_boundary_duplicates": 160
+    }
+  },
+  "fragmentation": {
+    "upper_bound_source_and_slug": {
+      "interpretation": "Upper bound only. A shared source_txt and table_slug does not prove that tables are parts of one logical table because broad title-to-slug matching also assigns core slugs to note tables.",
+      "groups": 17397,
+      "groups_with_multiple_csv": 1713,
+      "csv_in_multiple_groups": 4664,
+      "suffix_extras": 2951,
+      "maximum_csv_per_group": 25,
+      "multiple_group_size_distribution": {
+        "2": 1221,
+        "3": 288,
+        "4": 76,
+        "5": 45,
+        "6": 15,
+        "7": 9,
+        "8": 9,
+        "9": 9,
+        "10": 14,
+        "11": 9,
+        "12": 1,
+        "13": 4,
+        "14": 4,
+        "15": 2,
+        "16": 3,
+        "17": 1,
+        "21": 1,
+        "23": 1,
+        "25": 1
+      }
+    },
+    "upper_bound_core_slugs": {
+      "core_slugs": [
+        "BangCanDoiKeToan",
+        "BaoCaoTinhHinhTaiChinh",
+        "BaoCaoKetQuaKinhDoanh",
+        "BaoCaoLuuChuyenTienTe",
+        "BaoCaoThayDoiVonChuSoHuu"
+      ],
+      "csv_records": 2336,
+      "groups": 1390,
+      "groups_with_multiple_csv": 579,
+      "csv_in_multiple_groups": 1525,
+      "suffix_extras": 946,
+      "maximum_csv_per_group": 6,
+      "group_size_distribution": {
+        "1": 811,
+        "2": 353,
+        "3": 136,
+        "4": 47,
+        "5": 35,
+        "6": 8
+      },
+      "by_slug": {
+        "BangCanDoiKeToan": {
+          "csv_records": 901,
+          "groups": 404,
+          "groups_with_multiple_csv": 266,
+          "csv_in_multiple_groups": 763,
+          "suffix_extras": 497,
+          "maximum_csv_per_group": 6
+        },
+        "BaoCaoTinhHinhTaiChinh": {
+          "csv_records": 162,
+          "groups": 51,
+          "groups_with_multiple_csv": 51,
+          "csv_in_multiple_groups": 162,
+          "suffix_extras": 111,
+          "maximum_csv_per_group": 6
+        },
+        "BaoCaoKetQuaKinhDoanh": {
+          "csv_records": 552,
+          "groups": 410,
+          "groups_with_multiple_csv": 102,
+          "csv_in_multiple_groups": 244,
+          "suffix_extras": 142,
+          "maximum_csv_per_group": 4
+        },
+        "BaoCaoLuuChuyenTienTe": {
+          "csv_records": 615,
+          "groups": 436,
+          "groups_with_multiple_csv": 143,
+          "csv_in_multiple_groups": 322,
+          "suffix_extras": 179,
+          "maximum_csv_per_group": 4
+        },
+        "BaoCaoThayDoiVonChuSoHuu": {
+          "csv_records": 106,
+          "groups": 89,
+          "groups_with_multiple_csv": 17,
+          "csv_in_multiple_groups": 34,
+          "suffix_extras": 17,
+          "maximum_csv_per_group": 2
+        }
+      }
+    },
+    "conservative_structural_candidates": {
+      "interpretation": "High-priority review candidates, not a proven fragmentation count and not a lower-bound claim. The criteria are deliberately strict, but adjacent independent period tables can still match them.",
+      "criteria": [
+        "raw HTML tables are adjacent in the same source TXT",
+        "both convert successfully under the baseline extractor",
+        "both have the same canonical core slug",
+        "normalized base titles match",
+        "normalized selected value-period headers match",
+        "units are equal or one is missing",
+        "the later table is not explicitly marked as a continuation"
+      ],
+      "source_txt_scanned": 443,
+      "core_raw_tables": 3327,
+      "core_raw_tables_accepted_before_merge": 3145,
+      "candidate_runs": 101,
+      "candidate_boundaries": 131,
+      "raw_tables_in_candidate_runs": 232,
+      "candidate_extra_fragments": 131,
+      "run_length_distribution": {
+        "2": 72,
+        "3": 28,
+        "4": 1
+      },
+      "runs_by_slug": {
+        "BangCanDoiKeToan": 83,
+        "BaoCaoTinhHinhTaiChinh": 12,
+        "BaoCaoLuuChuyenTienTe": 6
+      },
+      "known_false_positive_guard_case": {
+        "source_txt": "data/raw_vifinqa/financial_statements/ACB/2020/ACB_financial_statements_2020_consolidated/ACB_financial_statements_2020_consolidated_extracted.txt",
+        "raw_table_ordinals": [
+          90,
+          91
+        ],
+        "page": 69,
+        "title": "38.1 Các cam kết ngoài bảng cân đối kế toán",
+        "reason_to_keep_separate": "The surrounding contexts identify the first table as 31 December 2020 and the second as 31 December 2019."
+      }
+    },
+    "review_examples": [
+      {
+        "source_txt": "data/raw_vifinqa/financial_statements/DIG/2016/DIG_financial_statements_2016_consolidated/DIG_financial_statements_2016_consolidated_extracted.txt",
+        "raw_table_ordinals": [3, 4, 5, 6],
+        "pages": [8, 9, 10, 11],
+        "slug": "BangCanDoiKeToan",
+        "expected_relation": "review_as_four_unmarked_consecutive_parts"
+      },
+      {
+        "source_txt": "data/raw_vifinqa/financial_statements/ASM/2015/ASM_financial_statements_2015_consolidated/ASM_financial_statements_2015_consolidated_extracted.txt",
+        "raw_table_ordinals": [5, 6, 7],
+        "pages": [8, 9, 10],
+        "slug": "BangCanDoiKeToan",
+        "expected_relation": "review_as_three_unmarked_consecutive_parts"
+      },
+      {
+        "source_txt": "data/raw_vifinqa/financial_statements/ASM/2015/ASM_financial_statements_2015_separate/ASM_financial_statements_2015_separate_extracted.txt",
+        "raw_table_ordinals": [5, 6, 7],
+        "pages": [7, 8, 9],
+        "slug": "BangCanDoiKeToan",
+        "expected_relation": "review_as_three_unmarked_consecutive_parts"
+      },
+      {
+        "source_txt": "data/raw_vifinqa/financial_statements/CRE/2022/CRE_financial_statements_2022_consolidated/CRE_financial_statements_2022_consolidated_extracted.txt",
+        "raw_table_ordinals": [2, 3, 4],
+        "pages": [6, 7, 8],
+        "slug": "BangCanDoiKeToan",
+        "expected_relation": "review_as_three_unmarked_consecutive_parts"
+      },
+      {
+        "source_txt": "data/raw_vifinqa/financial_statements/CRE/2022/CRE_financial_statements_2022_separate/CRE_financial_statements_2022_separate_extracted.txt",
+        "raw_table_ordinals": [2, 3, 4],
+        "pages": [6, 7, 8],
+        "slug": "BangCanDoiKeToan",
+        "expected_relation": "review_as_three_unmarked_consecutive_parts"
+      },
+      {
+        "source_txt": "data/raw_vifinqa/financial_statements/ACB/2023/ACB_financial_statements_2023_separate/ACB_financial_statements_2023_separate_extracted.txt",
+        "raw_table_ordinals": [2, 3],
+        "pages": [7, 8],
+        "slug": "BaoCaoTinhHinhTaiChinh",
+        "expected_relation": "review_as_two_unmarked_consecutive_parts"
+      },
+      {
+        "source_txt": "data/raw_vifinqa/financial_statements/ACB/2023/ACB_financial_statements_2023_consolidated/ACB_financial_statements_2023_consolidated_extracted.txt",
+        "raw_table_ordinals": [3, 4],
+        "pages": [7, 8],
+        "slug": "BaoCaoTinhHinhTaiChinh",
+        "expected_relation": "explicit_continuation_currently_merged"
+      },
+      {
+        "source_txt": "data/raw_vifinqa/financial_statements/ACV/2022/ACV_financial_statements_2022_aggregated/ACV_financial_statements_2022_aggregated_extracted.txt",
+        "raw_table_ordinals": [4, 5],
+        "pages": [8, 9],
+        "slug": "BangCanDoiKeToan",
+        "expected_relation": "explicit_continuation_currently_merged"
+      },
+      {
+        "source_txt": "data/raw_vifinqa/financial_statements/DTK/2025/DTK_financial_statements_2025_aggregated/DTK_financial_statements_2025_aggregated_extracted.txt",
+        "raw_table_ordinals": [5, 6, 7],
+        "pages": [9, 10, 11],
+        "slug": "BangCanDoiKeToan",
+        "expected_relation": "two_explicit_continuation_parts_currently_merged"
+      },
+      {
+        "source_txt": "data/raw_vifinqa/financial_statements/ACB/2020/ACB_financial_statements_2020_consolidated/ACB_financial_statements_2020_consolidated_extracted.txt",
+        "raw_table_ordinals": [90, 91],
+        "pages": [69, 69],
+        "slug": "BangCanDoiKeToan",
+        "expected_relation": "keep_separate_current_and_prior_period_tables"
+      }
+    ]
+  },
+  "evidenced_baseline_defects": [
+    {
+      "category": "continuation_detection",
+      "description": "A bare 'tiếp' token marks '(Theo phương pháp trực tiếp)' as a continuation."
+    },
+    {
+      "category": "table_classification",
+      "description": "The table-of-contents check searches the substring 'trang' and can collide with 'tình trạng'."
+    },
+    {
+      "category": "table_classification",
+      "description": "Broad core-title substring matching assigns core slugs to note tables and inflates source-plus-slug fragmentation counts."
+    },
+    {
+      "category": "unit_detection",
+      "description": "Scanning mixed nearby context with percent precedence can override an explicit VND table header."
+    },
+    {
+      "category": "table_classification",
+      "description": "Missing financial terms such as 'giá vốn' and 'trả trước' causes false negatives."
+    },
+    {
+      "category": "value_column_selection",
+      "description": "Column zero can be selected from a policy classification table, producing paragraph labels with debt-group codes 3 and 4 as values."
+    }
+  ]
+}

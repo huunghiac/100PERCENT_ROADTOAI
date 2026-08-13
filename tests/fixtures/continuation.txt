@@ -1,0 +1,15 @@
+BẢNG CÂN ĐỐI KẾ TOÁN
+Đơn vị: VND
+<table>
+  <tr><th>Chỉ tiêu</th><th>31/12/2023</th><th>01/01/2023</th></tr>
+  <tr><td>Tiền và các khoản tương đương tiền</td><td>1.000</td><td>900</td></tr>
+  <tr><td>Hàng tồn kho</td><td>2.000</td><td>1.800</td></tr>
+</table>
+
+BẢNG CÂN ĐỐI KẾ TOÁN (TIẾP THEO)
+Đơn vị: VND
+<table>
+  <tr><th>Chỉ tiêu</th><th>31/12/2023</th><th>01/01/2023</th></tr>
+  <tr><td>Nợ phải trả</td><td>1.500</td><td>1.400</td></tr>
+  <tr><td>Vốn chủ sở hữu</td><td>1.500</td><td>1.300</td></tr>
+</table>

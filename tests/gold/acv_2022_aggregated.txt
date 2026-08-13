@@ -1,0 +1,48 @@
+<!-- Excerpted and reduced from ACV 2022 aggregated financial statements. -->
+<h2>Các thành viên Hội đồng Quản trị trong năm và vào ngày lập báo cáo này như sau:</h2>
+<table>
+  <tr><td>Ông Lại Xuân Thanh</td><td>Chủ tịch</td></tr>
+  <tr><td>Ông Vũ Thế Phiệt</td><td>Thành viên</td></tr>
+  <tr><td>Ông Đào Việt Dũng</td><td>Thành viên</td></tr>
+</table>
+
+<h2>BẢNG CÂN ĐỐI KẾ TOÁN TỔNG HỢP</h2>
+<p>Đơn vị tính: VND</p>
+<table>
+  <tr><th>Chỉ tiêu</th><th>Mã số</th><th>Thuyết minh</th><th>Số cuối năm VND</th><th>Số đầu năm VND</th></tr>
+  <tr><td>A. TÀI SẢN NGẮN HẠN</td><td>100</td><td></td><td>40.210.451.632.622</td><td>35.821.004.718.182</td></tr>
+  <tr><td>I. Tiền và các khoản tương đương tiền</td><td>110</td><td>4</td><td>2.491.501.415.061</td><td>570.577.583.963</td></tr>
+</table>
+
+<h2>BẢNG CÂN ĐỐI KẾ TOÁN TỔNG HỢP (TIẾP THEO)</h2>
+<p>Đơn vị tính: VND</p>
+<table>
+  <tr><th>Chỉ tiêu</th><th>Mã số</th><th>Thuyết minh</th><th>Số cuối năm VND</th><th>Số đầu năm VND</th></tr>
+  <tr><td>C. NỘ PHẢI TRẢ</td><td>300</td><td></td><td>16.317.599.268.095</td><td>17.313.276.176.248</td></tr>
+  <tr><td>D. VỐN CHỦ SỞ HỮU</td><td>400</td><td></td><td>43.227.529.007.597</td><td>37.204.787.499.468</td></tr>
+</table>
+
+<h2>BÁO CÁO KẾT QUẢ HOẠT ĐỘNG KINH DOANH TỔNG HỢP</h2>
+<p>cho năm tài chính kết thúc ngày 31 tháng 12 năm 2022</p>
+<p>Đơn vị tính: VND</p>
+<table>
+  <tr><th>Chỉ tiêu</th><th>Mã số</th><th>Thuyết minh</th><th>Năm nay</th><th>Năm trước</th></tr>
+  <tr><td>1. Doanh thu bán hàng và cung cấp dịch vụ</td><td>01</td><td>22</td><td>13.902.292.927.348</td><td>9.584.169.647.872</td></tr>
+  <tr><td>7. Chi phí tài chính- Trong đó: Chi phí lãi vay</td><td>22</td><td>24</td><td>89.962.600.00573.083.857.692</td><td>144.161.497.18888.792.729.468</td></tr>
+</table>
+
+<h2>BÁO CÁO LƯU CHUYỂN TIỀN TỆ TỔNG HỢP</h2>
+<p>Đơn vị tính: VND</p>
+<table>
+  <tr><th>Chỉ tiêu</th><th>Mã số</th><th>Năm nay</th><th>Năm trước</th></tr>
+  <tr><td>Lợi nhuận trước thuế</td><td>01</td><td>8.688.403.572.826</td><td>3.592.446.049.414</td></tr>
+  <tr><td>Khấu hao tài sản cố định</td><td>02</td><td>1.751.291.797.646</td><td>1.679.558.899.533</td></tr>
+</table>
+
+<h2>BÁO CÁO LƯU CHUYỂN TIỀN TỆ TỔNG HỢP (TIẾP THEO)</h2>
+<p>Đơn vị tính: VND</p>
+<table>
+  <tr><th>Chỉ tiêu</th><th>Mã số</th><th>Năm nay</th><th>Năm trước</th></tr>
+  <tr><td>Lưu chuyển tiền thuần trong năm</td><td>50</td><td>1.927.911.688.986</td><td>2.722.045.373.289</td></tr>
+  <tr><td>Tiền và tương đương tiền cuối năm</td><td>70</td><td>2.491.501.415.061</td><td>570.577.583.963</td></tr>
+</table>

@@ -1,0 +1,7 @@
+<!-- Reduced from ACB 2023 accounting-policy table #10; numbers are debt-group categories. -->
+<h2>3 TÓM TẮT CÁC CHÍNH SÁCH KẾ TOÁN CHỦ YẾU (tiếp theo)</h2>
+<table>
+  <tr><th>Nhóm</th><th>Nhóm</th><th>Tình hình quá hạn</th></tr>
+  <tr><td>3</td><td>Nợ dưới tiêu chuẩn</td><td>Khoản nợ quá hạn dưới 30 ngày kể từ ngày có quyết định thu hồi</td></tr>
+  <tr><td>4</td><td>Nợ nghi ngờ</td><td>Khoản nợ quá hạn từ 181 ngày đến 360 ngày</td></tr>
+</table>

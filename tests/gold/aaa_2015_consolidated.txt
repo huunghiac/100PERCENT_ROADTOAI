@@ -1,0 +1,31 @@
+<!-- Excerpted and reduced from AAA 2015 consolidated financial statements. -->
+<h2>MỤC LỤC</h2>
+<table>
+  <tr><th>Nội dung</th><th>Trang</th></tr>
+  <tr><td>Bảng cân đối kế toán hợp nhất</td><td>5</td></tr>
+  <tr><td>Báo cáo kết quả hoạt động kinh doanh hợp nhất</td><td>8</td></tr>
+</table>
+
+<h2>BẢNG CÂN ĐỐI KẾ TOÁN HỢP NHẤT</h2>
+<p>Đơn vị tính: VND</p>
+<table>
+  <tr><th>TÀI SẢN</th><th>Mã số</th><th>Thuyết minh</th><th>31/12/2015</th><th>01/01/2015</th></tr>
+  <tr><td>A. TÀI SẢN NGĂN HẠN</td><td>100</td><td></td><td>1.071.561.008.455</td><td>694.379.188.147</td></tr>
+  <tr><td>I. Tiền và các khoản tương đương tiền</td><td>110</td><td>5.1</td><td>470.061.718.120</td><td>336.807.716.067</td></tr>
+</table>
+
+<h2>BẢNG CÂN ĐỐI KẾ TOÁN HỢP NHẤT (TIẾP THEO)</h2>
+<p>Đơn vị tính: VND</p>
+<table>
+  <tr><th>NGUỒN VỐN</th><th>Mã số</th><th>Thuyết minh</th><th>31/12/2015</th><th>01/01/2015</th></tr>
+  <tr><td>C. NỘ PHẢI TRẢ</td><td>300</td><td></td><td>1.135.279.409.795</td><td>635.324.911.650</td></tr>
+  <tr><td>I. Nợ ngắn hạn</td><td>310</td><td></td><td>667.079.248.529</td><td>507.673.920.248</td></tr>
+</table>
+
+<h2>BÁO CÁO KẾT QUẢ HOẠT ĐỘNG KINH DOANH HỢP NHẤT</h2>
+<p>Đơn vị tính: VND</p>
+<table>
+  <tr><th>Chỉ tiêu</th><th>Mã số</th><th>Thuyết minh</th><th>Năm 2015</th><th>Năm 2014</th></tr>
+  <tr><td>1. Doanh thu bán hàng và cung cấp dịch vụ</td><td>01</td><td></td><td>1.616.048.818.116</td><td>1.564.763.399.903</td></tr>
+  <tr><td>2. Các khoản giảm trừ doanh thu</td><td>02</td><td></td><td>1.499.870.215</td><td>4.119.790.812</td></tr>
+</table>
