@@ -1,0 +1,22 @@
+Chi_tieu,Gia_tri,Don_vi
+"1. Tiền thu bán hàng, cung cấp dịch vụ và doanh thu khác",1297546151871,VND
+"2. Tiền chi trả cho người cung cấp hàng hoá, dịch vụ",-157902356063,VND
+3. Tiền chi trả cho người lao động,-126413901027,VND
+4. Thuế thu nhập doanh nghiệp đã nộp,-15949536075,VND
+5. Tiền thu khác từ hoạt động kinh doanh,62160296448,VND
+6. Tiền chi khác cho hoạt động kinh doanh,-276936174290,VND
+Lưu chuyển tiền thuần từ hoạt động kinh doanh,782504480864,VND
+"1. Tiền chi để mua sắm, xây dựng TSCĐ và các tài sản dài hạn khác",-329004566993,VND
+"2. Tiền thu từ thanh lý, nhượng bán TSCĐ và các tài sản dài hạn khác",127836364,VND
+"3. Tiền chi cho vay, mua các công cụ nợ của đơn vị khác",-1394000000000,VND
+"4. Tiền thu hồi cho vay, bán lại các công cụ nợ của đơn vị khác",1743900000000,VND
+5. Tiền chi đầu tư góp vốn vào đơn vị khác,-312303290000,VND
+Lưu chuyển tiền thuần sử dụng vào hoạt động đầu tư,-291280020629,VND
+1. Tiền thu từ hoạt động repo,603069000000,VND
+2. Tiền chi trả hoạt động repo,-655590651539,VND
+"3. Cổ tức, lợi nhuận đã trả cho chủ sở hữu",-680041173600,VND
+Lưu chuyển tiền thuần sử dụng vào hoạt động tài chính,-732562825139,VND
+Lưu chuyển tiền thuần trong năm (50 = 20+30+40),-241338364904,VND
+Tiền và tương đương tiền đầu năm,478096731969,VND
+Ảnh hưởng của thay đổi tỷ giá hối đoái quy đổi ngoại tệ,20492241,VND
+Tiền và tương đương tiền cuối năm,236778859306,VND

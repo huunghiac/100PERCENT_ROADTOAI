@@ -1,0 +1,11 @@
+Chi_tieu,Gia_tri,Don_vi
+Tổng lợi nhuận kế toán trước thuế (1),204389471835,VND
+"Các khoản điều chỉnh tăng, giảm lợi nhuận kế toán để xác định lợi nhuận chịu thuế thu nhập doanh nghiệp (2):",7177109139,VND
+- Các khoản điều chỉnh tăng,277193570167,VND
+- Các khoản điều chỉnh giảm,-270016461028,VND
+Thu nhập chịu thuế (3) = (1)+(2),517396061462,VND
+Thu nhập được miễn thuế (4),1122213628,VND
+Thu nhập tính thuế (6) = (3)-(4)-(5),516273847834,VND
+- Chi phí thuế thu nhập doanh nghiệp tính trên thu nhập chịu thuế kỳ hiện hành,68695620981,VND
+- Điều chỉnh chi phí thuế thu nhập doanh nghiệp của các năm trước vào chi phí thuế thu nhập hiện hành năm nay,-1545656212,VND
+Tổng chi phí thuế thu nhập doanh nghiệp hiện hành,67149964769,VND

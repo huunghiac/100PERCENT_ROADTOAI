@@ -1,0 +1,26 @@
+Chi_tieu,Gia_tri,Don_vi
+1. Doanh thu bán hàng và cung cấp dịch vụ,25973085016299,VND
+2. Các khoản giảm trừ doanh thu,75434964476,VND
+3. Doanh thu thuần bán hàng và cung cấp dịch vụ (10=01-02),25897650051823,VND
+4. Giá vốn hàng bán,10281917414482,VND
+5. Lợi nhuận gộp về bán hàng và cung cấp dịch vụ (20=10-11),15615732637341,VND
+6. Doanh thu hoạt động tài chính,975279396734,VND
+7. Chi phí tài chính,457060726846,VND
+Trong đó: Chi phí lãi vay,60462429448,VND
+"8. Lãi trong công ty liên doanh, liên kết",430233155970,VND
+9. Chi phí bán hàng,402940841218,VND
+10. Chi phí quản lý doanh nghiệp,1327398218530,VND
+11. Lợi nhuận thuần từ hoạt động kinh doanh,14833845403451,VND
+12. Thu nhập khác,587579205828,VND
+13. Chi phí khác,12086793964,VND
+14. Lợi nhuận/(Lỗ) khác (40=31-32),575492411864,VND
+15. Tổng lợi nhuận kế toán trước thuế (50=30+40),15409337815315,VND
+16. Chi phí thuế TNDN hiện hành,3284566364837,VND
+17. Chi phí thuế TNDN hoãn lại,-340436244477,VND
+18. Lợi nhuận sau thuế thu nhập doanh nghiệp (60=50-51-52),12465207694955,VND
+- Lợi ích cổ đông không kiểm soát,12854488264,VND
+"- Lợi nhuận của công ty mẹ, trong đó:",12452353206691,VND
++ Lợi nhuận của Tổng Công ty,10814923270844,VND
++ Lợi nhuận từ hoạt động khai thác tài sản KCHTHK,1385094622527,VND
++ Lợi nhuận từ hoạt động bảo đảm ANHK,252335313320,VND
+19. Lãi cơ bản trên cổ phiếu,3019,VND/co phieu

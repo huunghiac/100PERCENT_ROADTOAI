@@ -1,0 +1,12 @@
+Chi_tieu,Gia_tri,Don_vi
+- Chi phí thuế thu nhập doanh nghiệp tính trên thu nhập chịu thuế trong năm hiện hành,1450250467,VND
+Lợi nhuận KT trước thuế (1),107353640925,VND
+Các khoản điều chỉnh giảm (2),243500000000,VND
+- Các khoản thu nhập không tính thuế (cổ tức được chia),243500000000,VND
+Các khoản điều chỉnh tăng (3),165151368416,VND
+- Lãi vay bị loại và chi phí khác không được trừ,165151368416,VND
+Thu nhập tính thuế = (1) - (2) + (3),29005009341,VND
+Thuế suất (*),5,%
+Thuế TNDN hiện hành,1450250467,VND
+- Điều chỉnh chi phí thuế thu nhập doanh nghiệp của các năm trước vào chi phí thuế thu nhập hiện hành năm này (**),5219080287,VND
+Tổng chi phí thuế thu nhập doanh nghiệp hiện hành,6669330754,VND

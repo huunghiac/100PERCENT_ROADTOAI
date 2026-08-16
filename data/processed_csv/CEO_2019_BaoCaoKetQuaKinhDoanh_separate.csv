@@ -1,0 +1,18 @@
+Chi_tieu,Gia_tri,Don_vi
+1. Doanh thu bán hàng và cung cấp dịch vụ,1114372089306,VND
+2. Các khoản giảm trừ doanh thu,424408060,VND
+3. Doanh thu thuần về hoạt động kinh doanh (10 = 01 - 02),1113947681246,VND
+4. Giá vốn hàng bán,661198964381,VND
+5. Lợi nhuận gộp về bán hàng và cung cấp dịch vụ (20 = 10 - 11),452748716865,VND
+6. Doanh thu hoạt động tài chính,41110880303,VND
+7. Chi phí tài chính,37083734030,VND
+- Trong đó: Chi phí lãi vay,20066960764,VND
+8. Chi phí bán hàng,42716522618,VND
+9. Chi phí quản lý doanh nghiệp,45255779471,VND
+10. Lợi nhuận thuần từ hoạt động kinh doanh {30 = 20 + (21 - 22) - (25 + 26)},368803561049,VND
+11. Thu nhập khác,2977307982,VND
+12. Chi phí khác,2029469234,VND
+13. Lợi nhuận khác (40 = 31 - 32),947838748,VND
+14. Tổng lợi nhuận kế toán trước thuế (50 = 30 + 40),369751399797,VND
+15. Chi phí thuế TNDN hiện hành,70155047042,VND
+17. Lợi nhuận sau thuế thu nhập doanh nghiệp (60 = 50 - 51 - 52),299596352755,VND
