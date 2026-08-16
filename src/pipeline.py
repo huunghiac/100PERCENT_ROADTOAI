@@ -5,7 +5,7 @@ import sys
 from retriever import TableRetriever
 from agent import PandasAgent
 
-def run_full_pipeline(questions_file="questions.jsonl", 
+def run_full_pipeline(questions_file="data/raw_vifinqa/questions.jsonl", 
                       output_json="submission.json", 
                       output_zip="submission.zip", 
                       max_questions=None,
@@ -80,7 +80,7 @@ def run_full_pipeline(questions_file="questions.jsonl",
             used_csv_paths.add(p)
             
         # 2. Agent Execution Stage
-        ans, err = agent.run_agent(question, csv_paths, max_retries=3)
+        ans, err = agent.run_agent(question, csv_paths, max_retries=1)
         print(f" -> Result: {ans}")
         if err:
             print(f" -> Error Notice: {err}")

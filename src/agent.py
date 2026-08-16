@@ -34,59 +34,87 @@ class PandasAgent:
 
     def get_csv_preview(self, csv_paths: list) -> str:
         """
-        Đọc tiêu đề cột và 3 dòng đầu của các file CSV để đưa vào context cho LLM.
+        Đọc tiêu đề cột và tối đa 30 dòng đầu của mỗi file CSV.
+        Chỉ gửi preview cho LLM, không gửi toàn bộ file.
         """
         context = []
         for path in csv_paths:
-            # Sửa đường dẫn tương đối để đọc đúng file từ working directory
             real_path = path if os.path.exists(path) else path.replace("data/", "", 1)
             if not os.path.exists(real_path):
                 continue
             try:
                 df = pd.read_csv(real_path)
-                preview = f"--- File: {path} ---\nColumns: {list(df.columns)}\nData Sample (Top 3 rows):\n{df.head(3).to_string()}\n"
+                n = min(30, len(df))
+                preview = (
+                    f"--- File: {path} ---\n"
+                    f"Shape: {df.shape[0]} rows x {df.shape[1]} cols\n"
+                    f"Columns: {list(df.columns)}\n"
+                    f"Dtypes: {df.dtypes.to_dict()}\n"
+                    f"Data (first {n} rows):\n{df.head(n).to_string()}\n"
+                )
                 context.append(preview)
             except Exception as e:
-                context.append(f"--- File: {path} (Error reading CSV: {str(e)}) ---\n")
+                context.append(f"--- File: {path} (Error: {e}) ---\n")
         return "\n".join(context)
 
     def generate_code(self, question: str, csv_paths: list, error_log: str = None) -> str:
-        """
-        Tạo prompt và gửi request đến Ollama API.
-        """
+        """Tạo prompt few-shot và gửi request đến Ollama API."""
         csv_context = self.get_csv_preview(csv_paths)
 
-        prompt = f"""Bạn là một chuyên gia phân tích dữ liệu Python và Pandas xuất sắc.
-Nhiệm vụ của bạn là viết một đoạn mã Python duy nhất sử dụng thư viện pandas để trả lời câu hỏi tài chính dựa trên dữ liệu từ các file CSV được cung cấp.
+        prompt = f"""You are a Python/Pandas expert. Write ONLY Python code to answer the question.
 
-CÂU HỎI:
-{question}
+RULES:
+- Read CSV files with: pd.read_csv("exact_file_path")
+- The final line MUST be: print(numeric_answer)
+- Print ONLY a single number. No text, no units, no explanation.
+- Keep your <think> reasoning very short (under 50 words).
+- Output code inside ```python ... ``` block.
 
-THÔNG TIN BẢNG DỮ LIỆU:
+EXAMPLE 1:
+Question: Doanh thu thuần năm 2018 của VJC là bao nhiêu tỷ đồng?
+File: data/mock_csv/VJC_2018_BaoCaoKetQuaKinhDoanh.csv (Columns: Chi_tieu, Gia_tri, Don_vi)
+```python
+import pandas as pd
+df = pd.read_csv("data/mock_csv/VJC_2018_BaoCaoKetQuaKinhDoanh.csv")
+result = df.loc[df["Chi_tieu"].str.contains("Doanh thu thuan", case=False, na=False), "Gia_tri"].values[0]
+print(result)
+```
+
+EXAMPLE 2:
+Question: Lợi nhuận sau thuế năm 2023 của FPT là bao nhiêu tỷ đồng?
+File: data/processed_csv/FPT_2023_BaoCaoKetQuaKinhDoanh_consolidated.csv (Columns: Chi_tieu, Gia_tri, Don_vi)
+```python
+import pandas as pd
+df = pd.read_csv("data/processed_csv/FPT_2023_BaoCaoKetQuaKinhDoanh_consolidated.csv")
+result = df.loc[df["Chi_tieu"].str.contains("Loi nhuan sau thue", case=False, na=False), "Gia_tri"].values[0]
+print(result)
+```
+
+NOW SOLVE THIS:
+Question: {question}
+
+Available data:
 {csv_context}
-
-YÊU CẦU BẮT BUỘC:
-1. Đọc đúng các file CSV bằng pandas: `pd.read_csv(filepath)`.
-2. Tính toán chính xác con số đáp án.
-3. Chỉ dùng lệnh `print(...)` ở cuối cùng để in ra DUY NHẤT một con số (hoặc chuỗi số) kết quả cuối cùng. Không in kèm chữ hay đơn vị.
-4. Chỉ viết mã Python trong khối ```python ... ```. Không giải thích dông dài.
 """
         if error_log:
-            prompt += f"\n\nLƯU Ý: Lần chạy trước code bị lỗi với log sau:\n{error_log}\nHãy sửa lại mã Python để khắc phục lỗi trên."
+            prompt += f"\nPREVIOUS ERROR (fix this):\n{error_log}\n"
 
         payload = {
             "model": self.model_name,
             "prompt": prompt,
-            "stream": False
+            "stream": False,
+            "options": {
+                "num_ctx": 4096,
+                "num_predict": 512
+            }
         }
 
         try:
-            res = requests.post(self.api_url, json=payload, timeout=120)
+            res = requests.post(self.api_url, json=payload, timeout=None)
             res.raise_for_status()
             raw_text = res.json().get("response", "")
             return self.clean_response(raw_text)
         except Exception as e:
-            # Fallback code nếu gọi API lỗi
             print(f"[Agent Warning] Error calling Ollama API: {e}")
             return "import pandas as pd\nprint(0.0)"
 
@@ -116,6 +144,9 @@ YÊU CẦU BẮT BUỘC:
         """
         Vòng lặp Agent: Sinh code -> Bóc thẻ <think> -> Thực thi -> Tự sửa lỗi nếu văng Exception.
         """
+        if not csv_paths:
+            return "0.0", "No CSV files found by retriever."
+
         error_log = None
         for attempt in range(max_retries):
             code = self.generate_code(question, csv_paths, error_log)
