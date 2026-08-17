@@ -1,0 +1,58 @@
+Chi_tieu,Gia_tri,Don_vi
+1. Lợi nhuận trước Thuế Thu nhập doanh nghiệp,441530368732,VND
+2. Điều chỉnh cho các khoản:,22853434112,VND
+- Khấu hao TSCĐ,17066767824,VND
+- Các khoản dự phòng,-6936128,VND
+- Dự thu tiền lãi,5793602416,VND
+3. Tăng các chi phí phi tiền tệ,-29535783,VND
+- Lỗ đánh giá lại giá trị các tài sản tài chính ghi nhận thông qua lãi/lỗ FVTPL,-29535783,VND
+4. Giảm các doanh thu phi tiền tệ,196620133215,VND
+- Lãi đánh giá lại giá trị các tài sản tài chính ghi nhận thông qua lãi lỗ FVTPL,196620133215,VND
+5. Lợi nhuận từ hoạt động kinh doanh trước thay đổi vốn lưu động,-2688254513182,VND
+- Tăng (giảm) tài sản tài chính ghi nhận thông qua lãi lỗ,-163778234092,VND
+- Tăng (giảm) các khoản cho vay,2518865235437,VND
+"- Tăng giảm phải thu và dự thu cổ tức, tiền lãi các tài sản tài chính",591230856,VND
+- Tăng giảm các khoản phải thu các dịch vụ CTCK cung cấp,2857824093,VND
+- Tăng giảm các khoản phải thu khác,1011113321,VND
+- Tăng giảm các tài sản khác,-332309593,VND
+- Tăng giảm chi phí phải trả (không bao gồm lãi vay),-4022521924,VND
+- Tăng giảm chi phí trả trước,-1879544630,VND
+- Thuế TNDN đã nộp,-147943287532,VND
+- Tăng giảm các khoản phải trả cho người bán,-2878686179,VND
+- Tăng giảm các khoản trích nộp phúc lợi nhân viên,86576637,VND
+- Tăng giảm thuế và các khoản phải nộp nhà nước (Không bao gồm Thuế TNDN đã nộp),-7623019702,VND
+- Tăng giảm phải trả người lao động,-8980014780,VND
+- Tăng giảm phải trả phải nộp khác,-4845210591771,VND
+- Tiền thu từ các hoạt động kinh doanh,65504783,VND
+- Tiền chi từ các hoạt động kinh doanh,-29083788106,VND
+Lưu chuyển tiền thuần từ hoạt động kinh doanh,-2027280112906,VND
+"II. Lưu chuyển tiền từ hoạt động đầu tư 1. Tiền chi để mua sắm, xây dựng TSCĐ, BĐSDT và các tài sản khác",-14582047482,VND
+Lưu chuyển tiền thuần từ hoạt động đầu tư,-14582047482,VND
+"1. Tiền thu từ phát hành cổ phiếu, nhận vốn góp của chủ sở hữu",180103161000,VND
+"2. Tiền chi trả vốn góp cho chủ sở hữu, mua lại cổ phiếu phát hành",-129249150,VND
+3. Tiền vay gốc,6916000000000,VND
+3.2. Tiền vay khác,6916000000000,VND
+4. Tiền chi trả nợ gốc vay,-6586000000000,VND
+4.3. Tiền chi trả gốc nợ vay khác,-6586000000000,VND
+"6. Cổ tức, lợi nhuận đã trả cho chủ sở hữu",-74153540000,VND
+Lưu chuyển tiền thuần từ hoạt động tài chính,435820371850,VND
+IV. Tăng/giảm tiền thuần trong kỳ,-1606041788538,VND
+V. Tiền và các khoản tương đương tiền đầu kỳ,1868836688046,VND
+- Tiền,1798836688046,VND
+- Các khoản tương đương tiền,70000000000,VND
+VI. Tiền và các khoản tương đương tiền cuối kỳ,262794899508,VND
+- Tiền,112794899508,VND
+- Các khoản tương đương tiền,150000000000,VND
+1. Tiền thu bán chứng khoán môi giới cho khách hàng,160219861438250,VND
+2. Tiền chỉ mua chứng khoán môi giới cho khách hàng,-159136319874260,VND
+7. Nhận tiền gửi để thanh toán giao dịch chứng khoán của khách hàng,-3112117076323,VND
+11. Chi trả phí lưu ký chứng khoán của khách hàng,-11963533894,VND
+14. Tiền thu của Tổ chức phát hành chứng khoán,1126278919360,VND
+15. Tiền chỉ trả Tổ chức phát hành chứng khoán,-1128647011535,VND
+Tăng/giảm tiền thuần trong kỳ,-2042907138402,VND
+II. Tiền và các khoản tương đương tiền đầu kỳ của khách hàng,4571707656061,VND
+- Tiền gửi của Nhà đầu tư về giao dịch chứng khoán theo phương thức CTCK quản lý,4569163013911,VND
+- Tiền gửi của Tổ chức phát hành,2544642150,VND
+III. Tiền và các khoản tương đương tiền cuối kỳ của khách hàng (\( 40 = 20 + 30 \)),2528800517659,VND
+- Tiền gửi của Nhà đầu tư về giao dịch chứng khoán theo phương thức CTCK quản lý,2528623967684,VND
+- Tiền gửi của Tổ chức phát hành,176549975,VND

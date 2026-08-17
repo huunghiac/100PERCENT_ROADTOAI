@@ -1,0 +1,21 @@
+Chi_tieu,Gia_tri,Don_vi
+1. Thu nhập lãi và các khoản thu nhập tương tự,1313359,Trieu dong
+2. Chi phí lãi và các chi phí tương tự,694768,Trieu dong
+I. Thu nhập lãi thuần (1-2),618591,Trieu dong
+3. Thu nhập từ hoạt động dịch vụ,51113,Trieu dong
+4. Chi phí hoạt động dịch vụ,20249,Trieu dong
+II. Lãi/lỗ thuần từ hoạt động dịch vụ (3-4),30864,Trieu dong
+III. Lãi/lỗ thuần từ hoạt động kinh doanh ngoại hối,21822,Trieu dong
+IV. Lãi/lỗ thuần từ mua bán chứng khoán kinh doanh,2565,Trieu dong
+5. Thu nhập từ hoạt động khác,30536,Trieu dong
+6. Chi phí hoạt động khác,7755,Trieu dong
+VI. Lãi/lỗ thuần từ hoạt động khác (5-6),22781,Trieu dong
+"VII. Thu nhập từ góp vốn, mua cổ phần",3416,Trieu dong
+VIII. Chi phí hoạt động,377440,Trieu dong
+IX. Lợi nhuận thuần từ hoạt động kinh doanh trước chi phí dự phòng rủi ro tín dụng(I+II+III+IV+V+VI+VII - VIII),322599,Trieu dong
+X. Chi phí dự phòng rủi ro tín dụng,268286,Trieu dong
+XI. Tổng lợi nhuận trước thuế (IX-X),54313,Trieu dong
+7. Chi phí thuế TNDN hiện hành,11199,Trieu dong
+XII. Chi phí thuế Thu nhập doanh nghiệp (7+8),11199,Trieu dong
+XIII. Lợi nhuận sau thuế Thu nhập doanh nghiệp (XI-XII),43114,Trieu dong
+XV. Lãi cơ bản trên cổ phiếu,140,VND/co phieu

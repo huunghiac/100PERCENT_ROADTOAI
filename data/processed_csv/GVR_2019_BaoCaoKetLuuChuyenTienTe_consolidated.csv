@@ -1,0 +1,39 @@
+Chi_tieu,Gia_tri,Don_vi
+1. Lợi nhuận trước thuế,4655311733199,
+2. Điều chỉnh cho các khoản,1117891268563,
+- Khấu hao tài sản cố định,1814118881953,
+- Các khoản dự phòng,90642539503,
+"- Lãi, lỗ chênh lệch tỷ giá hối doái do đánh giá lại các khoản mục tiền tệ có gốc ngoại tệ",1505151538,
+- Lãi lỗ từ hoạt động đầu tư,-1466763195362,
+- Chi phí lãi vay,661091404583,
+- Các khoản điều chỉnh khác,17296486348,
+3. Lợi nhuận từ hoạt động kinh doanh trước thay đổi vốn lưu động,5773203001762,
+"- Tăng, giảm các khoản phải thu",747971449605,
+"- Tăng, giảm hàng tồn kho",-230954610063,
+"- Tăng, giảm các khoản phải trả (Không kế lãi vay phải trả, thuế thu nhập doanh nghiệp phải nộp)",1571022559093,
+"- Tăng, giảm chi phí trả trước",-67249595021,
+"- Tăng, giảm chứng khoán kinh doanh",5083244000,
+- Tiền lãi vay đã trả,-709055078768,
+- Thuế thu nhập doanh nghiệp đã nộp,-884297641665,
+- Tiền thu khác từ hoạt động kinh doanh,38999929568,
+- Tiền chi khác cho hoạt động kinh doanh,-2493262616544,
+Lưu chuyển tiền thuần từ hoạt động kinh doanh,3751460641967,
+"II. Lưu chuyển tiền từ hoạt động đầu tư 1. Tiền chi đề mua sắm, xây dựng TSCĐ và các tài sản dài hạn khác",-864756814971,
+"2. Tiền thu từ thanh lý, nhượng bán TSCĐ và các tài sản dài hạn khác",401772234992,
+"3. Tiền chi cho vay, mua các công cụ nợ của đơn vị khác",-2531154566014,
+"4. Tiền thu hồi cho vay, bán lại công cụ nợ đơn vị khác",1969059986470,
+5. Tiền chi đầu tư góp vốn vào đơn vị khác,-55504922017,
+6. Tiền thu hồi đầu tư góp vốn vào đơn vị khác,44974391821,
+"7. Tiền thu lãi cho vay, cổ tức và lợi nhuận được chia",733076931537,
+Lưu chuyển tiền thuần từ hoạt động đầu tư,-302532758182,
+"1. Tiền thu từ phát hành cổ phiếu, nhận vốn góp của chủ sở hữu",0,VND
+"2. Tiền trả lại vốn góp cho các chủ sở hữu, mua lại cổ phiếu của doanh nghiệp đã phát hành",0,VND
+3. Tiền thu từ đi vay,7508729530334,VND
+4. Tiền trả nợ gốc vay,-8887740003391,VND
+5. Tiền trả nợ gốc thuê tài chính,0,VND
+"6. Cổ tức, lợi nhuận đã trả cho chủ sở hữu",-113364658490,VND
+Lưu chuyển tiền thuần từ hoạt động tài chính,-1492375131547,VND
+Lưu chuyển tiền thuần trong năm (50 = 20+30+40),1956552752238,VND
+Tiền và tương đương tiền đầu năm,5159740351097,VND
+Ảnh hưởng của thay đổi tỷ giá hối đoái quy đổi ngoại tệ,-1505151538,VND
+Tiền và tương đương tiền cuối năm (70 = 50+60+61),7114787951797,VND

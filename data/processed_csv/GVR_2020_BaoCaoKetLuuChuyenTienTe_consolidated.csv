@@ -1,0 +1,35 @@
+Chi_tieu,Gia_tri,Don_vi
+1. Lợi nhuận trước thuế,5911174781928,VND
+2. Điều chỉnh cho các khoản,290437728974,VND
+- Khấu hao tài sản cố định,2066517154614,VND
+- Các khoản dự phòng,-55070293768,VND
+"- Lãi, lỗ chênh lệch tỷ giá hối đoái do đánh giá lại các khoản mục tiền tệ có gốc ngoại tệ",9816772191,VND
+- Lãi lỗ từ hoạt động đầu tư,-2456955736965,VND
+- Chi phí lãi vay,726129832902,VND
+3. Lợi nhuận từ hoạt động kinh doanh trước thay đổi vốn lưu động,6201612510902,VND
+"- Tăng, giảm các khoản phải thu",-29011316923,VND
+"- Tăng, giảm hàng tồn kho",1479634682913,VND
+"- Tăng, giảm các khoản phải trả (Không kể lãi vay phải trả, thuế thu nhập doanh nghiệp phải nộp)",397075596488,VND
+"- Tăng, giảm chi phí trả trước",-1421343423759,VND
+"- Tăng, giảm chứng khoán kinh doanh",5595788599,VND
+- Tiền lãi vay đã trả,-619911849073,VND
+- Thuế thu nhập doanh nghiệp đã nộp,-1061985606744,VND
+- Tiền thu khác từ hoạt động kinh doanh,845318829399,VND
+- Tiền chi khác cho hoạt động kinh doanh,-6649087218542,VND
+Lưu chuyển tiền thuần từ hoạt động kinh doanh,-852102006740,VND
+"1. Tiền chi đề mua sắm, xây dựng TSCĐ và các tài sản dài hạn khác",-859279039585,VND
+"2. Tiền thu từ thanh lý, nhượng bán TSCĐ và các tài sản dài hạn khác",253511744436,VND
+"3. Tiền chi cho vay, mua các công cụ nợ của đơn vị khác",-2695607715313,VND
+"4. Tiền thu hồi cho vay, bán lại các công cụ nợ đơn vị khác",1803819580252,VND
+5. Tiền chi đầu tư góp vốn vào đơn vị khác,-45774781904,VND
+6. Tiền thu hồi đầu tư góp vốn vào đơn vị khác,39667602318,VND
+"7. Tiền thu lãi cho vay, cổ tức và lợi nhuận được chia",653232279208,VND
+Lưu chuyển tiền thuần từ hoạt động đầu tư,-850430330588,VND
+3. Tiền thu từ đi vay,7634624227313,VND
+4. Tiền trả nợ gốc vay,-7390017822421,VND
+"6. Cổ tức, lợi nhuận đã trả cho chủ sở hữu",-118761632340,VND
+Lưu chuyển tiền thuần từ hoạt động tài chính,125844772552,VND
+Lưu chuyển tiền thuần trong năm (50 = 20+30+40),-1576687564776,VND
+Tiền và tương đương tiền đầu năm,7114787951797,VND
+Ảnh hưởng của thay đổi tỷ giá hối đoái quy đổi ngoại tệ,-9816772191,VND
+Tiền và tương đương tiền cuối năm (70 = 50+60+61),5528283614830,VND

@@ -1,0 +1,60 @@
+Chi_tieu,Gia_tri,Don_vi
+A. TÀI SẢN NGÁN HẠN (100 = 110 + 130),2325137952302,VND
+I. Tài sản tài chính,2322305439018,VND
+1. Tiền và các khoản tương đương tiền,50280157184,VND
+1.1. Tiền,50280157184,VND
+2. Các tài sản tài chính ghi nhận thông qua lãi lỗ (FVTPL),470351407947,VND
+4. Các khoản cho vay,1803294121910,VND
+6. Dự phòng suy giảm giá trị các tài sản tài chính và tài sản thế chấp,-10885787729,VND
+7. Các khoản phải thu,7204466247,VND
+"7.2. Phải thu và dự thu cổ tức, tiền lãi các tài sản tài chính",7204466247,VND
+"7.2.1. Phải thu cổ tức, tiền lãi đến ngày nhận",102088528,VND
+"7.2.2. Dự thu cổ tức, tiền lãi chưa đến ngày nhận",7102377719,VND
+8. Trả trước cho người bán,215014630,VND
+9. Phải thu các dịch vụ CTCK cung cấp,1548651357,VND
+12. Các khoản phải thu khác,348007472,VND
+13. Dự phòng suy giảm giá trị các khoản phải thu (*),-50600000,VND
+II. Tài sản ngắn hạn khác,2832513284,VND
+"2. Vật tư văn phòng, công cụ, dụng cụ",951388523,VND
+3. Chi phí trả trước ngắn hạn,1197635483,VND
+"4. Cẩm cố, thế chấp, ký quỹ, ký cược ngắn hạn",8800000,VND
+5. Thuế giá trị gia tăng được khấu trừ,291453289,VND
+6. Thuế và các khoản phải thu Nhà nước,383235989,VND
+B. TÀI SẢN DÀI HẠN (200 = 210 + 220 + 230 + 240 + 250 - 260),198516610364,VND
+II. Tài sản cố định,166591242016,VND
+1. Tài sản cố định hữu hình,147616784289,VND
+- Nguyên giá,218681180749,VND
+- Giá trị hao mòn luỹ kế (*),-71064396460,VND
+3. Tài sản cố định vô hình,18974457727,VND
+- Nguyên giá,43683737761,VND
+- Giá trị hao mòn luỹ kế (*),-24709280034,VND
+V. Tài sản dài hạn khác,31925368348,VND
+"1. Cẩm cố, thế chấp, ký quỹ, ký cược dài hạn",849750570,VND
+2. Chi phí trả trước dài hạn,1056859734,VND
+4. Tiền nộp quỹ Hỗ trợ thanh toán,30018758044,VND
+TỔNG CỘNG TAI SAN(270 = 100 + 200),2523654562666,VND
+C. NỘ PHẢI TRẢ (300 = 310 + 340),412633077351,VND
+I. Nợ phải trả ngắn hạn,412633077351,VND
+1. Vay và nợ thuê tài chính ngắn hạn,361500000000,VND
+1.1.Vay ngắn hạn,361500000000,VND
+8. Phải trả người bán ngắn hạn,462956033,VND
+9. Người mua trả tiền trước ngắn hạn,2154775000,VND
+10. Thuế và các khoản phải nộp Nhà nước,12568232385,VND
+11. Phải trả người lao động,7666368000,VND
+12.Các khoản trích nộp phúc lợi nhân viên,953203375,VND
+13. Chi phí phải trả ngắn hạn,2820268528,VND
+"17.Các khoản phải trả, phải nộp khác ngắn hạn",4921827524,VND
+"19. Quỹ khen thưởng, phúc lợi",19585446506,VND
+D. VỐN CHỦ SỞ HỮU (400 = 410 + 420),2111021485315,VND
+I. Vốn chủ sở hữu,2111021485315,VND
+1. Vốn đầu tư của chủ sở hữu,1404110636400,VND
+1.1.Vốn góp của chủ sở hữu,1202440510000,VND
+a. Cổ phiếu phổ thông có quyền biểu quyết,1202440510000,VND
+1.2. Thặng dư vốn cổ phần,201678133850,VND
+1.5. Cổ phiếu quỹ (*),-8007450,VND
+4. Quỹ dự trữ bổ sung vốn điều lệ,69718084750,VND
+5. Quỹ dự phòng tài chính và rủi ro nghiệp vụ,69718084750,VND
+7. Lợi nhuận chưa phân phối,567474679415,VND
+7.1.Lợi nhuận đã thực hiện,293825405027,VND
+7.2.Lợi nhuận chưa thực hiện,273649274388,VND
+TỔNG CỘNG NỘ PHẢI TRẢ VÀ VỐN CHỦ SỞ HỮU (440=300+400),2523654562666,VND

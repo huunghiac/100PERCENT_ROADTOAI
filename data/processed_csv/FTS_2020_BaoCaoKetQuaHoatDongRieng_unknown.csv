@@ -1,0 +1,22 @@
+Chi_tieu,Gia_tri,Don_vi
+1.1. Lãi từ các tài sản tài chính ghi nhận thông qua lãi/lỗ (FVTPL),-7846215500,VND
+a. Lãi bán các tài sản tài chính FVTPL,4145753900,VND
+b. Chênh lệch tăng đánh giá lại các TSTC thông qua lãi/lỗ *,-29699638605,VND
+"c. Cổ tức, tiền lãi phát sinh từ tài sản tài chính FVTPL",17707669205,VND
+1.3. Lãi từ các khoản cho vay và phải thu,189864272706,VND
+1.6. Doanh thu môi giới chứng khoán,193888672180,VND
+1.8. Doanh thu nghiệp vụ tư vấn đầu tư chứng khoán,627071440,VND
+1.9. Doanh thu nghiệp vụ lưu ký chứng khoán,8629355238,VND
+1.10. Doanh thu hoạt động tư vấn tài chính,18272163314,VND
+1.11. Thu nhập hoạt động khác,100144556,VND
+Cộng doanh thu hoạt động (20 = 1->11),403535463934,VND
+2.1. Lỗ các tài sản tài chính ghi nhận thông qua lãi lỗ (FVTPL),-7884912,VND
+a. Lỗ bán các tài sản tài chính FVTPL,44296055,VND
+b. Chênh lệch giảm đánh giá lại các TSTC FVTPL*,-52180967,VND
+"2.4. Chi phí dự phòng tài sản tài chính, xử lý tôn thất các khoản phải thu khó đòi và lỗ suy giảm tài sản tài chính và chi phí đi vay của các khoản cho vay",19575194161,VND
+2.6. Chi phí hoạt động tự doanh,30634619,VND
+2.7. Chi phí nghiệp vụ môi giới chứng khoán,102339002825,VND
+2.9. Chi phí nghiệp vụ đầu tư chứng khoán,524976743,VND
+2.10. Chi phí nghiệp vụ lưu ký chứng khoán,11944280170,VND
+2.11. Chi phí hoạt động tư vấn tài chính,8851159688,VND
+Cộng chi phí hoạt động (40 = 21->32),143257363294,VND

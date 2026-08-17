@@ -1,0 +1,27 @@
+Chi_tieu,Gia_tri,Don_vi
+1. Lợi nhuận trước thuế,24821974881,VND
+2. Điều chỉnh cho các khoản - Khấu hao TSCĐ và BĐSDT,4272370109,VND
+- Các khoản dự phòng,3689638196,VND
+"- Lãi, lỗ từ hoạt động đầu tư",-44237665774,VND
+- Chi phí lãi vay,5596574365,VND
+3. Lợi nhuận từ hoạt động kinh doanh trước thay đổi vốn lưu động,-5857108223,VND
+- (Tăng)/giảm các khoản phải thu,7677271433,VND
+"- Tăng/(giảm) các khoản phải trả (Không kể lãi vay phải trả, thuế thu nhập doanh nghiệp phải nộp)",89371620519,VND
+- (Tăng)/giảm chi phí trả trước,1141947358,VND
+- (Tăng)/giảm chứng khoán kinh doanh,2761183955,VND
+- Tiền lãi vay đã trả,-5907157980,VND
+- Thuế thu nhập doanh nghiệp đã nộp,-4650414561,VND
+- Tiền chi khác cho hoạt động kinh doanh,-4349988064,VND
+Lưu chuyển tiền thuần từ hoạt động kinh doanh,80187354437,VND
+"1. Tiền chi đề mua sắm, xây dựng TSCĐ và các TSDH khác",-158362347,VND
+"2. Tiền chi cho vay, mua các công cụ nợ của đơn vị khác",-1884767000000,VND
+"3. Tiền thu hồi cho vay, bán lại các công cụ nợ của đơn vị khác",1870939732350,VND
+4. Tiền chi đầu tư góp vốn vào đơn vị khác,-220000000000,VND
+"5. Tiền thu lãi cho vay, cổ tức và lợi nhuận được chia",42609287244,VND
+Lưu chuyển tiền thuần từ hoạt động đầu tư,-191376342753,VND
+1. Tiền thu từ đi vay,1696582722719,VND
+2. Tiền trả nợ gốc vay,-1585375266533,VND
+Lưu chuyển tiền thuần từ hoạt động tài chính,111207456186,VND
+Lưu chuyển tiền thuần trong năm (\( 50 = 20 + 30 + 40 \)),18467870,VND
+Tiền và tương đương tiền đầu năm,3467883940,VND
+Tiền và tương đương tiền cuối năm (\( 70 = 50 + 60 + 61 \)),3486351810,VND
