@@ -94,7 +94,8 @@ def run_full_pipeline(questions_file="data/raw_vifinqa/questions.jsonl",
 
     # Init modules
     retriever = TableRetriever(csv_dir="data/processed_csv")
-    agent = PandasAgent(model_name="deepseek-r1:14b", base_url="http://localhost:11434")
+    # backend="auto": dùng transformers (Kaggle GPU) nếu có, fallback ollama (local)
+    agent = PandasAgent()
 
     if not os.path.exists(questions_file):
         print(f"ERROR: {questions_file} not found")
