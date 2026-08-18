@@ -9,17 +9,16 @@ Dự án tự động hóa việc tra cứu và tính toán chỉ số tài chí
 ```text
 Road-to-AI/
 ├── data/
-│   ├── raw_vifinqa/         # Kho BCTC dạng văn bản (.txt) từ Ban Tổ Chức
+│   ├── raw_vifinqa/         # Kho BCTC dạng văn bản (.txt) và questions.jsonl từ Ban Tổ Chức
 │   ├── processed_csv/       # Kết quả bóc tách tự động (.csv) từ file .txt
-│   ├── mock_csv/            # Dữ liệu giả (Mock CSV) phục vụ làm độc lập
+│   ├── mock_csv/            # Dữ liệu giả cũ, không dùng cho đáp án cuối
 │   └── synthetic_train/     # Tập dữ liệu tự sinh (Synthetic Dataset)
 ├── src/
 │   ├── data_extractor.py    # Module bóc tách bảng từ OCR .txt (Data Engineer)
 │   ├── retriever.py         # Module truy hồi file CSV phù hợp (Retrieval Engineer)
 │   ├── agent.py             # Module sinh mã Pandas & tự sửa lỗi (Agent Lead)
-│   ├── synthetic_generator.py # Module sinh dữ liệu tự động với LLM <= 14B (Lead)
 │   └── pipeline.py          # Script nối luồng tự động & nén submission.zip (Lead)
-├── questions.jsonl          # 1012 câu hỏi kiểm thử từ BTC (không đáp án)
+├── data/raw_vifinqa/questions.jsonl # 1012 câu hỏi kiểm thử từ BTC (không đáp án)
 ├── submission.json          # File kết quả đầu ra
 ├── submission.zip           # File ZIP cuối cùng nộp cho BTC
 ├── README.md                # Hướng dẫn dự án & Kế hoạch làm việc
@@ -76,12 +75,60 @@ Road-to-AI/
 Khi cả 3 module hoàn thành:
 1. Data Engineer chạy `data_extractor.py` để phủ toàn bộ CSV vào `data/processed_csv/`.
 2. Lead chạy `pipeline.py`:
-   - Đọc từng câu hỏi trong `questions.jsonl`.
-   - `retriever.py` tìm top 3 bảng `.csv`.
-   - `agent.py` sinh mã Pandas & tính kết quả.
-   - Ghi kết quả vào `submission.json`.
-   - Đóng gói file `submission.zip` chứa `submission.json` và thư mục `data/` chứa các CSV liên quan.
+   - Đọc từng câu hỏi trong `data/raw_vifinqa/questions.jsonl`.
+   - `retriever.py` tìm top 1-3 bảng `.csv` liên quan.
+   - `agent.py` sinh mã Pandas và tính kết quả.
+   - Ghi kết quả vào `submission.json` theo đúng schema bên dưới.
+   - Đóng gói `submission.zip` chứa `submission.json` và thư mục `data/` chứa đầy đủ CSV được tham chiếu.
 3. Tải file `submission.zip` lên trang cuộc thi.
+
+### 4.1 Cấu trúc `submission.zip`
+
+```text
+submission.zip
+├── submission.json
+└── data/
+    ├── <bảng_1>.csv
+    ├── <bảng_2>.csv
+    └── ...
+```
+
+Yêu cầu:
+- `submission.json` và `data/` phải nằm ở root của file ZIP.
+- `data/` phải chứa đầy đủ CSV được tham chiếu bởi `evidence[].csv_path`.
+- `csv_path` trong JSON phải là đường dẫn tương đối bắt đầu bằng `data/`.
+
+### 4.2 Cú pháp `submission.json`
+
+```json
+[
+  {
+    "id": 1,
+    "question": "Doanh thu thuần của Công ty CP Sữa Việt Nam (VNM) năm 2023 là bao nhiêu?",
+    "answer": 63075000000.0,
+    "relevant_docs": ["AAA_financial_statements_2015_consolidated"],
+    "relevant_tables": ["AAA_financial_statements_2015_consolidated|350"],
+    "evidence": [
+      {
+        "variable": "df1",
+        "csv_path": "data/AAA_financial_statements_2015_consolidated_table_1.csv"
+      }
+    ],
+    "pandas_query": "df1[(df1.company=='VNM') & (df1.year==2023)]['net_revenue'].values[0]"
+  }
+]
+```
+
+Trường dữ liệu:
+- `id`: Mã định danh câu hỏi, kiểu `integer`.
+- `question`: Nội dung câu hỏi tài chính, kiểu `string`.
+- `answer`: Kết quả số liệu, kiểu `float`.
+- `relevant_docs`: Danh sách mã báo cáo liên quan. Mã báo cáo lấy từ tên file/thư mục cuối trong đường dẫn tài liệu sau khi bỏ `.txt`. Ví dụ `ocr_filter\AAA\2015\AAA_financial_statements_2015_consolidated` → `AAA_financial_statements_2015_consolidated`.
+- `relevant_tables`: Danh sách bảng liên quan trực tiếp, định dạng `<id_báo_cáo>|<vị trí bảng trong báo cáo>`. Ví dụ `AAA_financial_statements_2015_consolidated|350`.
+- `evidence`: Danh sách CSV dùng để chạy `pandas_query`.
+  - `variable`: Tên biến DataFrame hợp lệ Python, không trùng nhau trong cùng câu hỏi, ví dụ `df1`, `df2`.
+  - `csv_path`: Đường dẫn tương đối tới CSV trong thư mục `data/` của gói nộp bài.
+- `pandas_query`: Câu lệnh Pandas dạng `string`, có thể chạy lại trên dữ liệu đã chuẩn hoá để tạo ra `answer`.
 
 ---
 

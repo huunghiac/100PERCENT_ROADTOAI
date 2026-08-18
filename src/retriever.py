@@ -9,13 +9,17 @@ class TableRetriever:
     def __init__(self, csv_dir="data/processed_csv",
                  manifest_path="data/processed_csv/_manifest.jsonl"):
         """
-        Tìm bảng CSV phù hợp cho câu hỏi bằng 2 tầng:
-          Tầng 1 – Lọc cứng theo ticker + year (glob filename).
-          Tầng 2 – Xếp hạng BM25 trên table_title/table_slug của các file đã lọc.
+        Tìm bảng CSV phù hợp cho câu hỏi bằng 3 tầng:
+          Tầng 0 – Entity extraction: ticker (ngoặc đơn > bare match > company name) + year.
+          Tầng 1 – Lọc cứng theo ticker + year + report_type (glob filename).
+          Tầng 2 – Xếp hạng BM25 trên table_title / table_slug / company_name metadata.
         """
         self.csv_dir = csv_dir
         self.manifest = {}
+        self.name_to_ticker = {}
+        self.ticker_set = set()
         self._load_manifest(manifest_path)
+        self._build_name_index()
 
     def _load_manifest(self, path: str):
         if not os.path.exists(path):
@@ -32,19 +36,72 @@ class TableRetriever:
                 except json.JSONDecodeError:
                     continue
 
+    # ---- Company-name → ticker index (built once) ----
+    def _normalize_name(self, name: str) -> str:
+        n = name.strip().lower()
+        n = re.sub(r'\s*-\s*(ctcp|tnhh|tjsc)\s*$', '', n)
+        n = re.sub(r'^(ctcp|tnhh|tổng công ty cổ phần|tổng công ty|công ty cổ phần|công ty)\s+', '', n)
+        return n.strip()
+
+    def _build_name_index(self):
+        seen = {}
+        for entry in self.manifest.values():
+            ticker = entry.get("ticker", "")
+            name = entry.get("company_name", "")
+            if ticker and name:
+                self.ticker_set.add(ticker)
+                if ticker not in seen:
+                    seen[ticker] = set()
+                seen[ticker].add(name)
+        for ticker, names in seen.items():
+            for raw_name in names:
+                self.name_to_ticker[self._normalize_name(raw_name)] = ticker
+                self.name_to_ticker[raw_name.lower().strip()] = ticker
+
+    # ---- Noise tickers ----
+    _NOISE_TICKERS = {
+        "CTCP", "TNHH", "TMCP", "VND", "USD", "BTC", "JSC", "HĐQT",
+        "TCTD", "NHNN", "BIDV", "CKPT", "CNTT",
+        "EPS", "CFO", "DOH", "LDR", "ROE", "ROA", "NIM", "CIR",
+        "CAR", "NPL", "COD",
+    }
+
+    def _extract_ticker_from_name(self, question: str):
+        q_lower = question.lower()
+        best_ticker = None
+        best_len = 0
+        for name_key, ticker in self.name_to_ticker.items():
+            if name_key in q_lower and len(name_key) > best_len:
+                best_len = len(name_key)
+                best_ticker = ticker
+        return best_ticker
+
     def extract_entities(self, question: str):
-        """Trích xuất Mã CK (2-4 ký tự in hoa) và Năm (20xx) từ câu hỏi."""
-        paren = re.search(r'\(([A-Z]{2,4})\)', question)
-        if paren:
-            ticker = paren.group(1)
-        else:
-            noise = {"CTCP", "TNHH", "TMCP", "VND", "USD", "BTC", "JSC"}
-            candidates = re.findall(r'\b([A-Z]{2,4})\b', question)
-            ticker = None
-            for c in candidates:
-                if c not in noise:
+        """
+        Trích xuất Mã CK và Năm từ câu hỏi.
+        Ưu tiên:
+          P1: Ticker trong ngoặc đơn (VJC)
+          P2: Company name substring match (longest match wins)
+          P3: Bare uppercase match known tickers (fallback)
+        """
+        ticker = None
+        # P1: Trong ngoặc đơn
+        paren = re.search(r'\(([A-Z][A-Z0-9]{1,3})\)', question)
+        if paren and paren.group(1) not in self._NOISE_TICKERS:
+            if paren.group(1) in self.ticker_set:
+                ticker = paren.group(1)
+        # P2: Company name substring match (takes priority over bare ticker)
+        if not ticker:
+            ticker = self._extract_ticker_from_name(question)
+        # P3: Bare uppercase match known tickers
+        if not ticker:
+            for c in re.findall(r'\b([A-Z][A-Z0-9]{1,3})\b', question):
+                if c in self._NOISE_TICKERS:
+                    continue
+                if c in self.ticker_set:
                     ticker = c
                     break
+        # Year
         year_match = re.search(r'\b(20\d{2})\b', question)
         year = year_match.group(1) if year_match else None
         return ticker, year
@@ -87,7 +144,7 @@ class TableRetriever:
     def retrieve(self, question: str, top_k: int = 3) -> list:
         """
         Đầu vào: Câu hỏi tiếng Việt.
-        Đầu ra: Danh sách đường dẫn 'data/...' của file CSV, tối đa top_k.
+        Đầu ra: Danh sách đường dẫn CSV, tối đa top_k.
         """
         ticker, year = self.extract_entities(question)
         report_type = self._detect_report_type(question)
@@ -99,10 +156,13 @@ class TableRetriever:
         # Tầng 1: Glob filter
         if ticker and year:
             matching = glob.glob(f"{self.csv_dir}/{ticker}_{year}_*.csv")
+            # Fallback: bỏ year nếu ticker+year không ra
+            if not matching:
+                matching = glob.glob(f"{self.csv_dir}/{ticker}_*.csv")
         elif ticker:
             matching = glob.glob(f"{self.csv_dir}/{ticker}_*.csv")
         else:
-            matching = glob.glob(f"{self.csv_dir}/*.csv")
+            matching = []
 
         if not matching:
             print(f"[Retriever] No CSV found for ticker={ticker} year={year}")
@@ -124,14 +184,23 @@ class TableRetriever:
 if __name__ == "__main__":
     retriever = TableRetriever()
     test_questions = [
-        "Lãi tiền gửi năm 2018 của công ty mẹ CTCP Hàng không Vietjet (VJC) là bao nhiêu triệu đồng?",
-        "Số dư cho vay khách hàng ngành Thương mại của công ty mẹ Ngân hàng TMCP Á Châu (ACB) cuối năm 2022 là bao nhiêu triệu đồng?",
-        "Lợi nhuận sau thuế của CTCP Chứng khoán FPT năm 2023 là bao nhiêu tỷ đồng?",
+        ("Lãi tiền gửi năm 2018 của công ty mẹ CTCP Hàng không Vietjet (VJC) là bao nhiêu triệu đồng?", "VJC"),
+        ("Số dư cho vay khách hàng ngành Thương mại của công ty mẹ Ngân hàng TMCP Á Châu (ACB) cuối năm 2022 là bao nhiêu triệu đồng?", "ACB"),
+        ("Lợi nhuận sau thuế của CTCP Chứng khoán FPT năm 2023 là bao nhiêu tỷ đồng?", "FTS"),
+        ("Chi phí dự phòng của Ngân hàng TMCP Sài Gòn Tài Lộc trong năm 2020 là bao nhiêu triệu đồng?", "STB"),
+        ("Chi phí tài chính của công ty mẹ CTCP Phát triển Sunshine Homes năm 2021 là bao nhiêu triệu đồng?", "SSH"),
+        ("Tổng tài sản của STB là bao nhiêu triệu đồng vào cuối năm 2016?", "STB"),
+        ("Số dư dự phòng rủi ro cho vay khách hàng của Ngân hàng TMCP Quân đội là bao nhiêu triệu đồng vào cuối năm 2020?", "MBB"),
+        ("Tổng giá trị thuần khoản đầu tư góp vốn vào đơn vị khác của Tập đoàn Bảo Việt là bao nhiêu triệu đồng đến ngày 31 tháng 12 năm 2020?", "BVH"),
     ]
-    for q in test_questions:
+    ok = 0
+    for q, expected in test_questions:
         ticker, year = retriever.extract_entities(q)
         results = retriever.retrieve(q, top_k=3)
-        print(f"Q: {q[:60]}...")
-        print(f"   Ticker={ticker}  Year={year}")
+        status = "✓" if ticker == expected else f"✗ (expected {expected})"
+        if ticker == expected:
+            ok += 1
+        print(f"{status} Ticker={ticker} Year={year} | Q: {q[:70]}...")
         print(f"   Results: {results}\n")
+    print(f"Entity extraction: {ok}/{len(test_questions)} correct")
 
