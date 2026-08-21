@@ -75,7 +75,7 @@ def run_full_pipeline(questions_file="data/raw_vifinqa/questions.jsonl",
     """
     print("=== Khởi động ViFinQA Pipeline ===")
 
-    # Checkpoint loading
+    # Checkpoint loading — chỉ giữ kết quả thật (có evidence + pandas_query)
     results_map = {}
     used_csv_paths = set()
 
@@ -83,12 +83,19 @@ def run_full_pipeline(questions_file="data/raw_vifinqa/questions.jsonl",
         try:
             with open(output_json, "r", encoding="utf-8") as f:
                 existing_data = json.load(f)
+                skipped_dummy = 0
                 for item in existing_data:
+                    ev = item.get("evidence", [])
+                    pq = item.get("pandas_query", "")
+                    if not ev and not pq:
+                        skipped_dummy += 1
+                        continue
                     results_map[item["id"]] = item
-                    for ev in item.get("evidence", []):
-                        if "csv_path" in ev:
-                            used_csv_paths.add(ev["csv_path"])
-            print(f"[Checkpoint] Loaded {len(results_map)} existing results.")
+                    for e in ev:
+                        if "csv_path" in e:
+                            used_csv_paths.add(e["csv_path"])
+                print(f"[Checkpoint] Loaded {len(results_map)} real results, "
+                      f"skipped {skipped_dummy} dummy entries.")
         except Exception as e:
             print(f"[Checkpoint] Error loading: {e}. Starting fresh.")
 
