@@ -64,7 +64,23 @@ for i in range(torch.cuda.device_count()):
           f'{props.total_mem / 1e9:.1f} GB VRAM')
 ```
 
-### Cell 4: Test 10 câu đầu
+### Cell 4: Tải model deepseek-ai/DeepSeek-R1-Distill-Qwen-14B
+
+Model ~9GB, lần đầu tải từ Hugging Face Hub mất ~3-5 phút.
+Lần chạy sau dùng cache, không tải lại.
+
+```python
+from agent import PandasAgent
+
+# Tải model về GPU — chỉ cần chạy 1 lần
+agent = PandasAgent(
+    model_name='deepseek-ai/DeepSeek-R1-Distill-Qwen-14B',
+    backend='transformers',  # dùng HuggingFace transformers, không cần Ollama
+)
+print(f'Backend: {agent.backend}')
+```
+
+### Cell 5: Test 10 câu đầu
 
 ```python
 from pipeline import run_full_pipeline
@@ -78,7 +94,7 @@ run_full_pipeline(
 )
 ```
 
-### Cell 5: Kiểm tra kết quả
+### Cell 6: Kiểm tra kết quả
 
 ```python
 import json
@@ -95,7 +111,7 @@ for r in results[:5]:
     print()
 ```
 
-### Cell 6: Chạy FULL 1012 câu
+### Cell 7: Chạy FULL 1012 câu
 
 ```python
 from pipeline import run_full_pipeline
@@ -109,7 +125,7 @@ run_full_pipeline(
 )
 ```
 
-### Cell 7: Download kết quả
+### Cell 8: Download kết quả
 
 ```python
 from IPython.display import FileLink
