@@ -105,8 +105,30 @@ def run_full_pipeline(questions_file="data/raw_vifinqa/questions.jsonl",
     agent = PandasAgent()
 
     if not os.path.exists(questions_file):
-        print(f"ERROR: {questions_file} not found")
-        return
+        # Tìm questions.jsonl ở nhiều vị trí (Kaggle dataset cấu trúc khác local)
+        search_paths = [
+            "data/raw_vifinqa/questions.jsonl",
+            "questions.jsonl",
+            "data/questions.jsonl",
+            "raw_vifinqa/questions.jsonl",
+        ]
+        # Kaggle input paths
+        for d in ["/kaggle/input", "/kaggle/working"]:
+            if os.path.isdir(d):
+                for root, dirs, files in os.walk(d):
+                    if "questions.jsonl" in files:
+                        search_paths.append(os.path.join(root, "questions.jsonl"))
+        found = None
+        for p in search_paths:
+            if os.path.exists(p):
+                found = p
+                break
+        if found:
+            print(f"[Info] questions.jsonl found at: {found}")
+            questions_file = found
+        else:
+            print(f"ERROR: questions.jsonl not found. Searched: {search_paths[:4]}")
+            return
 
     with open(questions_file, "r", encoding="utf-8") as f:
         lines = f.readlines()
