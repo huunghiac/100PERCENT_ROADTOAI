@@ -42,8 +42,19 @@ class PandasAgent:
             if torch_dtype is None:
                 torch_dtype = torch.float16
             self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+            # Detect GPU memory → ép accelerate dùng hết VRAM trước khi fallback CPU
+            if torch.cuda.is_available():
+                max_memory = {
+                    i: f"{int(torch.cuda.get_device_properties(i).total_memory * 0.9 / 1e9)}GiB"
+                    for i in range(torch.cuda.device_count())
+                }
+                max_memory["cpu"] = "24GiB"
+            else:
+                max_memory = None
             self.model = AutoModelForCausalLM.from_pretrained(
-                model_name, torch_dtype=torch_dtype, device_map="auto", trust_remote_code=True,
+                model_name, torch_dtype=torch_dtype,
+                device_map="auto", max_memory=max_memory,
+                trust_remote_code=True,
             )
             self.model.eval()
             print(f"[Agent] Model loaded. Device map: {self.model.hf_device_map}")
@@ -136,7 +147,8 @@ class PandasAgent:
 
     def _generate_transformers(self, prompt):
         inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=3584)
-        inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
+        first_device = next(iter(self.model.parameters())).device
+        inputs = {k: v.to(first_device) for k, v in inputs.items()}
         with torch.no_grad():
             outputs = self.model.generate(
                 **inputs, max_new_tokens=self.max_new_tokens,
