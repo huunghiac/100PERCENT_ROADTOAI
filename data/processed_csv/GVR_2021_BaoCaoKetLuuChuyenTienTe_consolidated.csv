@@ -1,0 +1,34 @@
+Chi_tieu,Gia_tri,Don_vi
+1. Lợi nhuận trước thuế,6212769218890,VND
+2. Điều chỉnh cho các khoản,1817050813094,VND
+- Khấu hao tài sản cố định,2303518160158,VND
+- Các khoản dự phòng,17233034914,VND
+"- Lãi, lỗ chênh lệch tỷ giá hồi đoái do đánh giá lại các khoản mục tiền tệ có gốc ngoại tệ",2375781162,VND
+- Lãi lỗ từ hoạt động đầu tư,-1114075751905,VND
+- Chi phí lãi vay,607999588765,VND
+3. Lợi nhuận từ hoạt động kinh doanh trước thay đổi vốn lưu động,8029820031984,VND
+"- Tăng, giảm các khoản phải thu",174609297333,VND
+"- Tăng, giảm hàng tồn kho",-1438785663332,VND
+"- Tăng, giảm các khoản phải trả (Không kể lãi vay phải trả, thuế thu nhập doanh nghiệp phải nộp)",974487344837,VND
+"- Tăng, giảm chi phí trả trước",122811131115,VND
+- Tiền lãi vay đã trả,-240475146962,VND
+- Thuế thu nhập doanh nghiệp đã nộp,-1180392952138,VND
+- Tiền thu khác từ hoạt động kinh doanh,881017870951,VND
+- Tiền chi khác cho hoạt động kinh doanh,-3402020385977,VND
+Lưu chuyển tiền thuần từ hoạt động kinh doanh,3921071527811,VND
+"1. Tiền chi để mua sắm, xây dựng TSCĐ và các tài sản dài hạn khác",-865428496691,VND
+"2. Tiền thu từ thanh lý, nhượng bán TSCĐ và các tài sản dài hạn khác",246207934029,VND
+"3. Tiền chi cho vay, mua các công cụ nợ đơn vị khác",-2634939891778,VND
+"4. Tiền thu hồi cho vay, bán lại các công cụ nợ đơn vị khác",1711638307907,VND
+5. Tiền chi đầu tư góp vốn vào đơn vị khác,-43326401314,VND
+6. Tiền thu hồi đầu tư góp vốn vào đơn vị khác,42889481421,VND
+"7. Tiền thu lãi cho vay, cổ tức và lợi nhuận được chia",611567649798,VND
+Lưu chuyển tiền thuần từ hoạt động đầu tư,-931391416628,VND
+3. Tiền thu từ đi vay,3382141215246,VND
+4. Tiền trả nợ gốc vay,-6484167558274,VND
+"6. Cổ tức, lợi nhuận đã trả cho chủ sở hữu",-109942261055,VND
+Lưu chuyển tiền thuần từ hoạt động tài chính,-3211968604083,VND
+Lưu chuyển tiền thuần trong năm (50 = 20+30+40),-222288492900,VND
+Tiền và tương đương tiền đầu năm,5528283614830,VND
+Ảnh hưởng của thay đổi tỷ giá hối đoái quy đổi ngoại tệ,-2375781162,VND
+Tiền và tương đương tiền cuối năm (70 = 50+60+61),5303619340768,VND

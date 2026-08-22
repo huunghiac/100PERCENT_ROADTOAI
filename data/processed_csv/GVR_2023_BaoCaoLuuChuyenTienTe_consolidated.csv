@@ -1,0 +1,26 @@
+Chi_tieu,Gia_tri,Don_vi
+1. Lợi nhuận trước thuế,4113891839564,VND
+2. Điều chỉnh cho các khoản,353560926443,VND
+- Khấu hao tài sản cố định,2488425976550,VND
+- Các khoản dự phòng,-43408958719,VND
+"- Lãi, lỗ chênh lệch tỷ giá hồi doái do đánh giá lại các khoản mục tiền tệ có gốc ngoại tệ",46957442844,VND
+- Lãi lỗ từ hoạt động đầu tư,-2944015312045,VND
+- Chi phí lãi vay,805601777813,VND
+3. Lợi nhuận từ hoạt động kinh doanh trước thay đổi vốn lưu động,4467452766007,VND
+"- Tăng, giảm các khoản phải thu",199569497016,VND
+"- Tăng, giảm hàng tồn kho",842676980101,VND
+"- Tăng, giảm các khoản phải trả (Không kể lãi vay phải trả, thuê thu nhập doanh nghiệp phải nộp)",-693546845913,VND
+"- Tăng, giảm chi phí trả trước",32224000910,VND
+- Tiền lãi vay đã trả,-457590930686,VND
+- Thuế thu nhập doanh nghiệp đã nộp,-621751502843,VND
+- Tiền thu khác từ hoạt động kinh doanh,1728819054169,VND
+- Tiền chi khác cho hoạt động kinh doanh,-2249339599450,VND
+Lưu chuyển tiền thuần từ hoạt động kinh doanh,3248513419311,VND
+"1. Tiền chỉ đề mua sắm, xây dựng TSCĐ và các tài sản dài hạn khác",-964954528436,VND
+"2. Tiền thu từ thanh lý, nhượng bán TSCĐ và các tài sản dài hạn khác",611336137318,VND
+"3. Tiền chi cho vay, mua các công cụ nợ của đơn vị khác",-2639190543183,VND
+"4. Tiền thu hồi cho vay, bán lại các công cụ nợ đơn vị khác",1538729973579,VND
+5. Tiền chỉ đầu tư góp vốn vào đơn vị khác,-12303056383,VND
+6. Tiền thu hồi đầu tư góp vốn vào đơn vị khác,1219256472,VND
+"7. Tiền thu lãi cho vay, cổ tức và lợi nhuận được chia",378154029977,VND
+Lưu chuyển tiền thuần từ hoạt động đầu tư,-1087008730656,VND

@@ -1,0 +1,20 @@
+Chi_tieu,Gia_tri,Don_vi
+Doanh thu bán hàng,4048817336,Nghin VND
+Doanh thu thuần về bán hàng (10 = 01 - 02),4048817336,Nghin VND
+Giá vốn hàng bán,2945556012,Nghin VND
+Lợi nhuận gộp (20 = 10 - 11),1103261324,Nghin VND
+Doanh thu hoạt động tài chính,221046558,Nghin VND
+Chi phí tài chính,966860622,Nghin VND
+Chi phí bán hàng,132925055,Nghin VND
+Chi phí quản lý doanh nghiệp,93030372,Nghin VND
+Lợi nhuận/(lỗ) thuần từ hoạt động kinh doanh {30 = 20 + (21 - 22) - (25 + 26)},131491833,Nghin VND
+Thu nhập khác,2378754,Nghin VND
+Chi phí khác,33305833,Nghin VND
+Lỗ khác (40 = 31 - 32),-30927079,Nghin VND
+Lợi nhuận/(lỗ) kế toán trước thuế (50 = 30 + 40),100564754,Nghin VND
+Chi phí thuế TNDN hiện hành,14320441,Nghin VND
+Lợi ích thuế TNDN hoãn lại,-29101561,Nghin VND
+Lợi nhuận/(lỗ) sau thuế TNDN (60 = 50 - 51 - 52),115345874,Nghin VND
+Chủ sở hữu của Công ty,109841024,Nghin VND
+Cổ đông không kiểm soát,5504850,Nghin VND
+Lãi cơ bản trên cổ phiếu,153,VND/co phieu

@@ -1,0 +1,20 @@
+Chi_tieu,Gia_tri,Don_vi
+Doanh thu bán hàng và cung cấp dịch vụ,89791619,Trieu VND
+Các khoản giảm trừ doanh thu,1162852,Trieu VND
+Doanh thu thuần (10 = 01 - 02),88628767,Trieu VND
+Giá vốn hàng bán và dịch vụ cung cấp,66493966,Trieu VND
+Lợi nhuận gộp (20 = 10 - 11),22134801,Trieu VND
+Doanh thu hoạt động tài chính,6799578,Trieu VND
+Chi phí tài chính,5706531,Trieu VND
+Trong đó: Chi phí lãi vay,4669426,Trieu VND
+Phần lãi trong các công ty liên kết,3896641,Trieu VND
+Chi phí bán hàng,11786338,Trieu VND
+Chi phí quản lý doanh nghiệp,4064969,Trieu VND
+Lợi nhuận thuần từ hoạt động kinh doanh{30 = 20 + (21 - 22) + 24 - (25 + 26)},11273182,Trieu VND
+Thu nhập khác,501150,Trieu VND
+Chi phí khác,285548,Trieu VND
+Kết quả từ hoạt động khác (40 = 31 - 32),215602,Trieu VND
+Lợi nhuận kế toán trước thuế (50 = 30 + 40),11488784,Trieu VND
+Chi phí thuế TNDN hiện hành,1499249,Trieu VND
+Lợi ích thuế TNDN hoãn lại,-111846,Trieu VND
+Lợi nhuận sau thuế TNDN (60 = 50 - 51 - 52)(mang sang trang sau),10101381,Trieu VND

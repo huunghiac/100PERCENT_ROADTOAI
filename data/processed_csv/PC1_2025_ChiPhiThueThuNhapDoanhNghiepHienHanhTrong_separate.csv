@@ -1,0 +1,21 @@
+Chi_tieu,Gia_tri,Don_vi
+Lợi nhuận trước thuế (a),923628076704,
+Lợi nhuận từ hoạt động kinh doanh chính (thuế suất 20%),550303980066,%
+Lợi nhuận từ hoạt động kinh doanh bất động sản (thuế suất 20%),143885927517,%
+Lợi nhuận từ hoạt động kinh doanh thủy điện (thuế suất 5%),204410891841,%
+"Lợi nhuận từ hoạt động sản xuất, kinh doanh ở nước ngoài (thuế suất 20%)",25027277280,%
+Điều chỉnh cho thu nhập chịu thuế (b),-191961061331,
+Cộng:,153380584084,
+Biến động chênh lệch tạm thời không được ghi nhận,138055457184,
+Chi phí không được trừ,10816992955,
+Thuế thu nhập doanh nghiệp đã nộp ở nước ngoài được khấu trừ tại Việt Nam,4508133945,
+Trừ:,-345341645415,
+"Cổ tức, lợi nhuận được chia",-345341645415,
+Ảnh hưởng của chi phí lãi vay vượt 30% EBITDA theo Nghị định 132/2020/NĐ-CP (c),-164741484411,%
+Lỗ tính thuế các năm trước được sử dụng trong năm (d),-20192837280,
+Thu nhập chịu thuế năm hiện hành (e = a + b + c + d),546732693682,
+Thu nhập chịu thuế suất 5% (f),143832915957,%
+Thu nhập chịu thuế suất 20% (g),402899777725,%
+Thuế thu nhập doanh nghiệp đã nộp ở nước ngoài được khấu trừ tại Việt Nam (h),-4508133945,
+1% trên khoản tiền khách hàng trả trước cho bất động sản chưa bàn giao (i),2695876300,%
+Chi phí thuế thu nhập doanh nghiệp tính trên thu nhập chịu thuế năm hiện hành [j = 5%(f) + 20%(g) + (h) + (i)],85959343698,%

@@ -1,0 +1,13 @@
+Chi_tieu,Gia_tri,Don_vi
+a. Tổng lợi nhuận kế toán trước thuế,913870958694,VND
+"b. Các khoản điều chỉnh tăng, giảm lợi nhuận kế toán để xác định thu nhập chịu thuế thu nhập doanh nghiệp:",-106985037602,VND
+- Các khoản điều chỉnh tăng,6549582228,VND
++ Chi phí không được trừ và chi phí khấu hao xe ô tô,6549582228,VND
+- Các khoản điều chỉnh giảm,-113534619830,VND
++ Chi phí dự phòng giảm hàng tồn kho đã hoàn,-15864450870,VND
++ Điều chỉnh thuế TNDN theo Nghị định 132/2020/ND-CP,-31448847981,VND
++ Dự phòng trợ nợ phải thu khó đòi đã hoàn,-64617966179,VND
++ Dự phòng trợ cấp thời việc đã chi,-1603354800,VND
+c. Thu nhập chịu thuế năm hiện hành (a+b),806885921092,VND
++ Thuế suất thuế TNDN,20,%
+d. Lỗ kỳ trước chuyển sang,-806885921092,VND

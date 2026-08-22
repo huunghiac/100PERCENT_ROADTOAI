@@ -1,0 +1,50 @@
+Chi_tieu,Gia_tri,Don_vi
+Doanh thu phí bảo hiểm (01 = 02 + 03 + 04),42669681559583,VND
+Phí bảo hiểm gốc,42591775979851,VND
+Phí nhận tái bảo hiểm,217571102216,VND
+Tăng dự phòng phí chưa được hưởng của bảo hiểm gốc và nhận tái bảo hiểm,-139665522484,VND
+Phí nhượng tái bảo hiểm (05 = 06 + 07),-3543497880539,VND
+Tổng phí nhượng tái bảo hiểm,-3512320192983,VND
+(Giảm)/Tăng dự phòng phí nhượng tái bảo hiểm,-31177687556,VND
+Doanh thu phí bảo hiểm thuần (08 = 01 + 05),39126183679044,VND
+Hoa hồng nhượng tái bảo hiểm và doanh thu khác hoạt động kinh doanh bảo hiểm,696992004604,VND
+Doanh thu thuần từ hoạt động kinh doanh bảo hiểm (15 = 08 + 09),39823175683648,VND
+Chi bồi thường bảo hiểm gốc và chi trả đáo hạn,-19714375555448,VND
+Chi bồi thường nhận tái bảo hiểm,-66271004339,VND
+Các khoản giảm trừ chi phí (18 = 19 + 20),2211813306,VND
+Thu đời người thứ ba,969976944,VND
+Thu xử lý hàng bồi thường 100%,1241836362,%
+Thu bồi thường nhượng tái bảo hiểm,1185989939621,VND
+Tăng dự phòng nghiệp vụ bảo hiểm gốc (22 = 23 + 24 + 25 + 26),-18168730820701,VND
+Tăng dự phòng toán học,-14449285268595,VND
+Tăng dự phòng lãi cam kết đầu tư tối thiểu,-3081906630621,VND
+Tăng dự phòng chia lãi,-527118564278,VND
+Tăng dự phòng đảm bảo cân đối,-110420357207,VND
+(Tăng)/Giảm dự phòng bồi thường bảo hiểm gốc và nhận tái bảo hiểm,-480900161673,VND
+Tăng/(Giảm) dự phòng bồi thường nhượng tái bảo hiểm,580130152238,VND
+Tổng chi bồi thường và trả tiền bảo hiểm (29 = 16 + 17 + 18 + 21 + 22 + 27 + 28),-36661945636996,VND
+Tăng dự phòng dao động lớn,-51325477527,VND
+Chi khác hoạt động bào hiểm gốc(31 = 32 + 33),-4079017436980,VND
+Chi hoa hồng,-2489113008960,VND
+Chi khác hoạt động kinh doanh bảo hiểm,-1589904428020,VND
+Tổng chi trực tiếp hoạt động kinh doanh bảo hiểm (41 = 29 + 30 + 31),-40792288551503,VND
+Lỗ gộp hoạt động kinh doanh bảo hiểm (42 = 15 + 41),-969112867855,VND
+Doanh thu hoạt động khác,555874347470,VND
+Chi phí hoạt động khác,-545882462285,VND
+Lợi nhuận/(Lỗ) thuần từ các hoạt động khác (43 = 43.1 + 43.2),9991885185,VND
+Doanh thu hoạt động tài chính,12689327095724,VND
+Chi phí hoạt động tài chính,-2115731389939,VND
+Lợi nhuận hoạt động tài chính(44 = 44.1 + 44.2),10573595705785,VND
+"Phần lợi nhuận trong công ty liên kết, đơn vị kinh doanh đồng kiểm soát",94085046978,VND
+Chi phí bán hàng,-1346798811485,VND
+Chi phí quản lý doanh nghiệp,-5724600399115,VND
+Thu nhập khác,29836692724,VND
+Chi phí khác,-3825774921,VND
+Lợi nhuận khác (48 = 48.1 + 48.2),26010917803,VND
+TỔNG LỢI NHUẬN KẾ TOÁN TRƯỚC THUẾ(50 = 42 + 43 + 44 + 45 + 46 + 47 + 48),2663171477296,VND
+Chi phí thuế thu nhập doanh nghiệp hiện hành,-464527211119,VND
+Chi phí thuế thu nhập doanh nghiệp hoãn lại,-4475662847,VND
+LỢI NHUẬN SAU THUẾ THU NHẬP DOANH NGHIỆP (60 = 50 + 51 + 52),2194168603330,VND
+LỢI NHUẬN SAU THUẾ CỦA CHỦ SỞ HỦU TẬP ĐOÀN,2110496926600,VND
+Lợi nhuận sau thuế của cổ đông không kiểm soát,83671676730,VND
+Lãi cơ bản trên cổ phiếu,2843,VND/co phieu

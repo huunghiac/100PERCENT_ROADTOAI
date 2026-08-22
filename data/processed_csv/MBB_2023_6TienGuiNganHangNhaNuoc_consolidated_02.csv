@@ -1,0 +1,10 @@
+Chi_tieu,Gia_tri,Don_vi
+- Tiền gửi bằng ngoại tệ có thời hạn dưới 12 tháng,8,%
+- Tiền gửi bằng ngoại tệ có thời hạn từ 12 tháng trở lên,6,%
+- Tiền gửi bằng VND có thời hạn dưới 12 tháng,3,%
+- Tiền gửi bằng VND có thời hạn từ 12 tháng trở lên,1,%
+- Tiền gửi bằng ngoại tệ,1,%
+- Tiến gửi bằng ngoại tệ có thời hạn dưới 12 tháng,10,%
+- Tiến gửi bằng LAK có thời hạn dưới 12 tháng,8,%
+- Tiền gửi bằng ngoại tệ khác KHR,9,%
+- Tiền gửi bằng KHR,7,%

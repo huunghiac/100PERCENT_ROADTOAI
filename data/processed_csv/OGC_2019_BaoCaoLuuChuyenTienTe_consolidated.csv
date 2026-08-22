@@ -1,0 +1,33 @@
+Chi_tieu,Gia_tri,Don_vi
+1. Lợi nhuận trước thuế,124782878697,VND
+2. Điều chỉnh cho các khoản,125270582360,VND
+- Khấu hao tài sản cố định và bắt động sản đầu tư,113282684113,VND
+- Các khoản dự phòng,1506669440,VND
+"- Lãi, lỗ chênh lệch tỷ giá hối đoái do đánh giá lại các khoản mục tiền tệ có gốc ngoại tệ",22301712,VND
+"- Lãi, lỗ từ hoạt động đầu tư",-67135792612,VND
+- Chi phí lãi vay,77594719707,VND
+3. Lợi nhuận từ hoạt động kinh doanh trước thay đổi vốn lưu động,250053461057,VND
+"- Tăng, giảm các khoản phải thu",71604921726,VND
+"- Tăng, giảm hàng tồn kho",-10212346453,VND
+"- Tăng, giảm các khoản phải trả (không kể lãi vay phải trả, thuế thu nhập doanh nghiệp phải nộp)",-188326575784,VND
+"- Tăng, giảm chi phí trả trước",15247757540,VND
+- Tiền lãi vay đã trả,-10513971682,VND
+- Thuế thu nhập doanh nghiệp đã nộp,-42713867221,VND
+- Tiền chỉ khác cho hoạt động kinh doanh,-5609403367,VND
+Lưu chuyển tiền thuần từ hoạt động kinh doanh,79529975816,VND
+"1. Tiền chỉ để mua sắm, xây dựng tài sản cố định và các tài sản dài hạn khác",-27146790517,VND
+"2. Tiền thu từ thanh lý, nhượng bán tài sản cố định và các tài sản dài hạn khác",1065521191,VND
+"3. Tiền chỉ cho vay, mua các công cụ nợ của đơn vị khác",-263264333248,VND
+"4. Tiền thu hồi cho vay, bán lại các công cụ nợ của đơn vị khác",278927987677,VND
+5. Tiền chỉ đầu tư góp vốn vào đơn vị khác,-118333911600,VND
+6. Tiền thu hồi đầu tư góp vốn vào đơn vị khác,122867590494,VND
+"7. Tiền thu lãi cho vay, cổ tức và lợi nhuận được chia",26954229196,VND
+Lưu chuyển tiền thuần từ hoạt động đầu tư,21070293192,VND
+"1. Tiền thu từ phát hành cổ phiếu, nhận vốn góp của chủ chủ sở hữu",17800000,VND
+2. Tiền trải nợ gốc vay,-219702193389,VND
+"3. Cổ tức, lợi nhuận đã trả cho chủ sở hữu",-23050265674,VND
+Lưu chuyển tiền thuần từ hoạt động tài chính,-242734659063,VND
+Lưu chuyển tiền thuần trong năm,-142134390054,VND
+Tiền và tương đương tiền đầu năm,365783831175,VND
+Ảnh hưởng của thay đổi tỷ giá hối đoái quy đổi ngoại tệ,-22301712,VND
+Tiền và tương đương tiền cuối năm,223627139409,VND

@@ -1,0 +1,52 @@
+Chi_tieu,Gia_tri,Don_vi
+"1. Lãi từ các tài sản tài chính ghi nhận thông qua lãi/lỗ (""FVTPL"")",6038728813096,VND
+1.1. Lãi bán các tài sản tài chính FVTPL,3070505458249,VND
+1.2. Chênh lệch tăng về đánh giá lại các tài sản tài chính FVTPL,411740822212,VND
+"1.3. Cổ tức, tiền lãi phát sinh từ tài sản tài chính FVTPL",2251807583514,VND
+1.4. Chênh lệch giảm do đánh giá lại phải trả chứng quyền đang lưu hành,304674949121,VND
+"2. Lãi từ các khoản đầu tư nắm giữ đến ngày đáo hạn (""HTM"")",440708121979,VND
+3. Lãi từ các khoản cho vay và phải thu,3562009243140,VND
+"4. Lãi từ tài sản tài chính sẵn sàng để bán (""AFS"")",31334968132,VND
+5. Doanh thu nghiệp vụ môi giới chứng khoán,2347774768018,VND
+"6. Doanh thu nghiệp vụ bảo lãnh, đại lý phát hành chứng khoán",7081780822,VND
+7. Doanh thu nghiệp vụ tư vấn đầu tư chứng khoán,7598419015,VND
+8. Doanh thu nghiệp vụ lưu ký chứng khoán,58609588539,VND
+9. Doanh thu hoạt động tư vấn tài chính,47797250691,VND
+10. Thu nhập hoạt động khác,81975786030,VND
+Cộng doanh thu hoạt động,12623618739462,VND
+1. Lỗ từ các tài sản tài chính FVTPL,3040511816356,VND
+1.1. Lỗ bán các tài sản tài chính FVTPL,2387982229573,VND
+1.2. Chênh lệch giảm đánh giá lại các tài sản tài chính FVTPL,355677775836,VND
+1.3. Chi phí giao dịch mua các tài sản tài chính FVTPL,13763038637,VND
+1.4. Chênh lệch tăng do đánh giá lại phải trả chứng quyền đang lưu hành,283088772310,VND
+2. Lỗ và ghi nhận chênh lệch đánh giá theo giá trị hợp lý tài sản tài chính sẵn sàng để bán (AFS) khi phân loại lại,4741291390,VND
+"3. (Hoàn nhập)/chi phí dự phòng tài sản tài chính, xử lý tổn thất các khoản phải thu khó đòi, lỗ suy giảm tài sản tài chính và chi phí đi vay của các khoản cho vay",-41923779656,VND
+4. Chi phí hoạt động tự doanh,164388123875,VND
+5. Chi phí nghiệp vụ môi giới chứng khoán,1587459023422,VND
+"6. Chi phí nghiệp vụ bảo lãnh, đại lý phát hành chứng khoán",8929244726,VND
+7. Chi phí nghiệp vụ tư vấn đầu tư chứng khoán,15284521164,VND
+8. Chi phí nghiệp vụ lưu ký chứng khoán,56565562090,VND
+9. Chi phí hoạt động tư vấn tài chính,32865211269,VND
+10. Chi phí hoạt động khác,129238355752,VND
+Cộng chi phí hoạt động,4998059370388,VND
+1.Chênh lệch lãi tỷ giá hối đoái đã và chưa thực hiện,36385705164,VND
+"2.Doanh thu, dự thu cổ tức, lãi tiền gửi ngân hàng không cố định",54362069779,VND
+"3.Lãi bán, thanh lý các khoản đầu tư vào công ty con, liên kết, liên doanh",1090648916,VND
+4.Doanh thu khác về đầu tư,29924986341,VND
+Cộng doanh thu hoạt động tài chính,121763410200,VND
+1.Chênh lệch lỗ tỷ giá hối đoái đã và chưa thực hiện,85615033627,VND
+2.Chi phí lãi vay,2561801123900,VND
+3.Chi phí tài chính khác,14726358615,VND
+Cộng chi phí tài chính,2662142516142,VND
+V.CHI PHÍ QUẢN LÝ,229229532783,VND
+VI.KẾT QUẢ HOẠT ĐỘNG,4855950730349,VND
+Thu nhập khác,4928643048,VND
+Chi phí khác,2008568946,VND
+Cộng kết quả hoạt động khác,2920074102,VND
+VIII.TỔNG LỢI NHUẬN KẾ TOÁN TRƯỚC THUẾ,4858870804451,VND
+Lợi nhuận đã thực hiện,4782457485896,VND
+Lợi/(lỗ) nhuận chưa thực hiện,76413318555,VND
+IX.CHI PHÍ THUẾ THU NHẬP DOANH NGHIỆP (TNDN),941465580804,VND
+Chi phí thuế TNDN hiện hành,933916764957,VND
+Chi phí/(thu nhập) thuế TNDN hoãn lại,7548815847,VND
+X.LỢI NHUẬN KẾ TOÁN SAU THUẾ TNDN,3917405223647,VND

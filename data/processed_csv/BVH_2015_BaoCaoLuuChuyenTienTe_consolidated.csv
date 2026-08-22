@@ -1,0 +1,33 @@
+Chi_tieu,Gia_tri,Don_vi
+1. Lợi nhuận trước thuế,1468891856638,VND
+2. Điều chỉnh cho các khoản,2928578290862,VND
+- Khấu hao TSCĐ,158323745833,VND
+- Các khoản dự phòng,5983182996807,VND
+- Lãi chênh lệch tỉ giá hối đoái do đánh giá lại các khoản mục tiền tệ có gốc ngoại tệ,-4782030076,VND
+- Lãi tử hoạt động đầu tư,-3431723815825,VND
+- Chi phí lãi vay,223577394123,VND
+3. Lợi nhuận từ hoạt động kinh doanh trước thay đổi vốn lưu động,4397470147500,VND
+- (Tăng)/giảm các khoản phải thu,118470490972,VND
+- Tăng hàng tồn kho,-94009033080,VND
+"- Tăng các khoản phải trả (Không kể lãi vay phải trả, thuế thu nhập doanh nghiệp phải nộp)",218102147001,VND
+- Tăng chi phí trả trước,-3233368033,VND
+- Giảm chứng khoán kinh doanh,112366056141,VND
+- Tiền lãi vay đã trả,-167024839413,VND
+- Thuế thu nhập doanh nghiệp đã nộp,-274892086257,VND
+- Tiền chi khác cho hoạt động kinh doanh,-114407606966,VND
+Lưu chuyển tiền thuần từ hoạt động kinh doanh,4192841907865,VND
+"1. Tiền chi để mua sắm, xây dựng TSCĐ và các tài sản dài hạn khác",-108040074269,VND
+"2. Tiền thu từ thanh lý, nhượng bán TSCĐ và các tài sản dài hạn khác",1055555257,VND
+"3. Tiền chi cho vay, mua các công cụ nợ của đơn vị khác",-13542772264140,VND
+"4. Tiền thu hồi cho vay, bán lại các công cụ nợ của đơn vị khác",3534899361649,VND
+5. Tiền chi đầu tư góp vốn vào đơn vị khác,-197598877198,VND
+"6. Tiền thu lãi cho vay, cổ tức và lợi nhuận được chia",3107618426268,VND
+Lưu chuyển tiền thuần sử dụng vào hoạt động đầu tư,-7204837872433,VND
+2. Tiền thu từ đi vay (bao gồm hoạt động repo),16897026534657,VND
+3. Tiền trả nợ gốc vay (bao gồm hoạt động repo),-12373735516055,VND
+"4. Cổ tức, lợi nhuận đã trả cho chủ sở hữu Tập đoàn và các cổ đông không kiểm soát",-681281899550,VND
+Lưu chuyển tiền thuần từ/(sử dụng vào) hoạt động tài chính,3842009119052,VND
+Lưu chuyển tiền thuần trong năm,830013154484,VND
+Tiền và tương đương tiền đầu năm,1424818218079,VND
+Ảnh hưởng của thay đổi tỷ giá hối đoái quy đổi ngoại tệ,1860063480,VND
+Tiền và tương đương tiền cuối năm,2256691436043,VND

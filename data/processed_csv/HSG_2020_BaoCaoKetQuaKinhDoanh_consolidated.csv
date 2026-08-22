@@ -1,0 +1,23 @@
+Chi_tieu,Gia_tri,Don_vi
+Doanh thu bán hàng và cung cấp dịch vụ,27765155626306,VND
+Các khoản giảm trừ doanh thu,234406112472,VND
+Doanh thu thuần về bán hàng và cung cấp dịch vụ (10 = 01 - 02),27530749513834,VND
+Giá vốn hàng bán và dịch vụ cung cấp,22903482165423,VND
+Lợi nhuận gộp (20 = 10 - 11),4627267348411,VND
+Doanh thu hoạt động tài chính,77984494109,VND
+Chi phí tài chính,645261573177,VND
+Trong đó: Chi phí lãi vay,560086135926,VND
+Chi phí bán hàng,2221083074110,VND
+Chi phí quản lý doanh nghiệp,459978781905,VND
+Lợi nhuận thuần từ hoạt động kinh doanh {30 = 20 + (21 - 22) - (25 + 26)},1378928413328,VND
+Thu nhập khác,28617237724,VND
+Chi phí khác,31902487528,VND
+Kết quả từ hoạt động khác (40 = 31 - 32),-3285249804,VND
+Lợi nhuận kế toán trước thuế (50 = 30 + 40),1375643163524,VND
+Chi phí thuế TNDN hiện hành,259835557336,VND
+Lợi ích thuế TNDN hoãn lại,-37206411121,VND
+Lợi nhuận sau thuế TNDN (60 = 50 - 51 - 52) (mang sang trang sau),1153014017309,VND
+Lợi nhuận sau thuế TNDN(60 = 50 - 51 - 52)(mang từ trang trước sang),1153014017309,VND
+Trong đó:Lợi nhuận sau thuế của Công ty mẹ(Lỗ)/lợi nhuận sau thuế của cổ đôngkhông kiểm soát,1153328313935,VND
+Trong đó:Lợi nhuận sau thuế của Công ty mẹ(Lỗ)/lợi nhuận sau thuế của cổ đôngkhông kiểm soát,-314296626,VND
+Lãi trên cổ phiếuLãi cơ bản trên cổ phiếu,2492,VND/co phieu
