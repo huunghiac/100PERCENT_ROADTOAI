@@ -153,14 +153,14 @@ class TableRetriever:
             print(f"[Retriever] WARNING: csv_dir '{self.csv_dir}' empty or missing.")
             return []
 
-        # Tầng 1: Glob filter
+        # Tầng 1: Glob filter (CSV nằm trong subdir theo ticker)
         if ticker and year:
-            matching = glob.glob(f"{self.csv_dir}/{ticker}_{year}_*.csv")
+            matching = glob.glob(f"{self.csv_dir}/{ticker}/{ticker}_{year}_*.csv")
             # Fallback: bỏ year nếu ticker+year không ra
             if not matching:
-                matching = glob.glob(f"{self.csv_dir}/{ticker}_*.csv")
+                matching = glob.glob(f"{self.csv_dir}/{ticker}/{ticker}_*.csv")
         elif ticker:
-            matching = glob.glob(f"{self.csv_dir}/{ticker}_*.csv")
+            matching = glob.glob(f"{self.csv_dir}/{ticker}/{ticker}_*.csv")
         else:
             matching = []
 

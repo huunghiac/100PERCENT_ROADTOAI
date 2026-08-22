@@ -41,7 +41,11 @@ def _build_submission_fields(csv_paths: list, manifest: dict):
     for i, csv_path in enumerate(csv_paths):
         var_name = f"df{i + 1}"
         # csv_path trong submission phải bắt đầu bằng data/
-        arc_path = f"data/{os.path.basename(csv_path)}"
+        # csv_path đã có dạng data/processed_csv/TICKER/file.csv
+        if csv_path.startswith("data/"):
+            arc_path = csv_path
+        else:
+            arc_path = f"data/{csv_path}"
 
         evidence.append({"variable": var_name, "csv_path": arc_path})
 
