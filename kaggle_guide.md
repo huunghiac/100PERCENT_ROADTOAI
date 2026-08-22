@@ -99,7 +99,8 @@ run_full_pipeline(
     output_json='submission.json',
     output_zip='submission.zip',
     max_questions=5,
-    checkpoint_interval=2
+    checkpoint_interval=2,
+    agent=agent
 )
 ```
 
@@ -125,7 +126,8 @@ run_full_pipeline(
     output_json='submission.json',
     output_zip='submission.zip',
     max_questions=None,
-    checkpoint_interval=20
+    checkpoint_interval=20,
+    agent=agent
 )
 ```
 

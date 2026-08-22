@@ -67,7 +67,8 @@ def run_full_pipeline(questions_file="data/raw_vifinqa/questions.jsonl",
                       output_json="submission.json",
                       output_zip="submission.zip",
                       max_questions=None,
-                      checkpoint_interval=10):
+                      checkpoint_interval=10,
+                      agent=None):
     """
     Pipeline chính:
     1. Load checkpoint cũ nếu có
@@ -105,8 +106,9 @@ def run_full_pipeline(questions_file="data/raw_vifinqa/questions.jsonl",
 
     # Init modules
     retriever = TableRetriever(csv_dir="data/processed_csv")
-    # backend="auto": dùng transformers (Kaggle GPU) nếu có, fallback ollama (local)
-    agent = PandasAgent()
+    # Dùng agent đã tạo sẵn nếu có, tránh load model 2 lần gây OOM
+    if agent is None:
+        agent = PandasAgent()
 
     if not os.path.exists(questions_file):
         # Tìm questions.jsonl ở nhiều vị trí (Kaggle dataset cấu trúc khác local)
