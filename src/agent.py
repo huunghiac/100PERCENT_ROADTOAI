@@ -45,7 +45,7 @@ class PandasAgent:
             # Detect GPU memory → ép accelerate dùng hết VRAM trước khi fallback CPU
             if torch.cuda.is_available():
                 max_memory = {
-                    i: f"{int(torch.cuda.get_device_properties(i).total_memory * 0.85 / 1e9)}GiB"
+                    i: f"{int(torch.cuda.get_device_properties(i).total_memory * 0.70 / 1e9)}GiB"
                     for i in range(torch.cuda.device_count())
                 }
                 max_memory["cpu"] = "32GiB"
