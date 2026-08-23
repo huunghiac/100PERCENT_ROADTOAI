@@ -133,6 +133,7 @@ class PandasAgent:
             '- IMPORTANT: Chi_tieu values are in Vietnamese with diacritics (e.g. "Lợi nhuận sau thuế", NOT "Loi nhuan sau thue")\n'
             '- Use str.contains() with case=False, na=False on Chi_tieu column\n'
             '- Copy the EXACT Vietnamese text from the data preview for str.contains()\n'
+            '- Search ALL provided CSV files if the first one does not contain the answer\n'
             '- The final line MUST be: print(numeric_answer)\n'
             '- Print ONLY a single number. No text, no units.\n'
             '- Output code inside ```python ... ``` block.\n'
@@ -140,9 +141,16 @@ class PandasAgent:
             'EXAMPLE:\n'
             'Question: Lợi nhuận sau thuế của ACB năm 2023?\n'
             '```python\nimport pandas as pd\n'
-            'df = pd.read_csv("data/processed_csv/ACB/ACB_2023_BaoCaoKetQuaHoatDong_consolidated.csv")\n'
-            'val = df.loc[df["Chi_tieu"].str.contains("Lợi nhuận sau thuế", case=False, na=False), "Gia_tri"].values[0]\n'
-            'print(val)\n```\n\n'
+            'files = [\n'
+            '    "data/processed_csv/ACB/ACB_2023_BaoCaoKetQuaHoatDong_consolidated.csv",\n'
+            '    "data/processed_csv/ACB/ACB_2023_BaoCaoTinhHinhTaiChinh_consolidated.csv",\n'
+            ']\n'
+            'for f in files:\n'
+            '    df = pd.read_csv(f)\n'
+            '    match = df.loc[df["Chi_tieu"].str.contains("Lợi nhuận sau thuế", case=False, na=False), "Gia_tri"]\n'
+            '    if not match.empty:\n'
+            '        print(match.values[0])\n'
+            '        break\n```\n\n'
             f'NOW SOLVE THIS:\nQuestion: {question}\n\nAvailable data:\n{csv_context}\n'
         )
         if error_log:
@@ -150,7 +158,7 @@ class PandasAgent:
         return prompt
 
     def _generate_transformers(self, prompt):
-        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=2048)
+        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=3584)
         first_device = next(iter(self.model.parameters())).device
         inputs = {k: v.to(first_device) for k, v in inputs.items()}
         with torch.no_grad():

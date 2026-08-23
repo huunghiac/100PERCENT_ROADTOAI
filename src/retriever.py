@@ -2,6 +2,7 @@ import os
 import re
 import json
 import glob
+import pandas as pd
 from rank_bm25 import BM25Okapi
 
 
@@ -107,7 +108,7 @@ class TableRetriever:
         return ticker, year
 
     def _bm25_rank(self, question: str, csv_paths: list, top_k: int) -> list:
-        """Xếp hạng csv_paths theo BM25 dựa trên metadata manifest."""
+        """Xếp hạng csv_paths theo BM25 dựa trên metadata manifest + nội dung Chi_tieu."""
         if not csv_paths:
             return []
         corpus_tokens = []
@@ -120,6 +121,15 @@ class TableRetriever:
                 entry.get("company_name", ""),
                 entry.get("report_type", ""),
             ])
+            # Enrich: thêm Chi_tieu values từ CSV content
+            real_path = p if os.path.exists(p) else p.replace("data/", "", 1)
+            if os.path.exists(real_path):
+                try:
+                    df = pd.read_csv(real_path, usecols=["Chi_tieu"], nrows=50)
+                    chi_tieu_text = " ".join(df["Chi_tieu"].dropna().astype(str).tolist())
+                    doc += " " + chi_tieu_text
+                except Exception:
+                    pass
             tokens = doc.lower().split()
             if tokens:
                 corpus_tokens.append(tokens)
@@ -141,7 +151,7 @@ class TableRetriever:
             return "consolidated"
         return None
 
-    def retrieve(self, question: str, top_k: int = 3) -> list:
+    def retrieve(self, question: str, top_k: int = 5) -> list:
         """
         Đầu vào: Câu hỏi tiếng Việt.
         Đầu ra: Danh sách đường dẫn CSV, tối đa top_k.
