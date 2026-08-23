@@ -6,6 +6,7 @@ import sys
 import time
 from retriever import TableRetriever
 from agent import PandasAgent
+from fallback import try_rule_based_answer
 
 
 # ---------------------------------------------------------------------------
@@ -178,6 +179,20 @@ def run_full_pipeline(questions_file="data/raw_vifinqa/questions.jsonl",
         print(f"  Answer: {ans}")
         if err:
             print(f"  Error: {err[:200]}")
+
+        # 2b. Deterministic fallback for model generation failure or zero answer with good evidence.
+        needs_fallback = "GENERATION_FAILED" in (pandas_code or "")
+        try:
+            needs_fallback = needs_fallback or float(ans) == 0.0
+        except (ValueError, TypeError, OverflowError):
+            needs_fallback = True
+        if needs_fallback:
+            fallback = try_rule_based_answer(question, csv_paths)
+            if fallback is not None:
+                ans = str(fallback.answer)
+                pandas_code = fallback.pandas_query
+                err = None
+                print(f"  Fallback: {fallback.answer} (score={fallback.score:.1f}, row={fallback.row_index}, file={os.path.basename(fallback.csv_path)})")
 
         # 3. Format result
         relevant_docs, relevant_tables, evidence = _build_submission_fields(
