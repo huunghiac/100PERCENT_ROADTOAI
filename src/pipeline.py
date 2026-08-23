@@ -163,7 +163,7 @@ def run_full_pipeline(questions_file="data/raw_vifinqa/questions.jsonl",
         print(f"\n--- [{idx}/{len(lines)}] ID={q_id}: {question[:70]}... ---")
 
         # 1. Retrieval
-        csv_paths = retriever.retrieve(question, top_k=8)
+        csv_paths = retriever.retrieve(question, top_k=5)
         ticker, year = retriever.extract_entities(question)
         print(f"  Ticker={ticker} Year={year} CSVs={len(csv_paths)}")
 

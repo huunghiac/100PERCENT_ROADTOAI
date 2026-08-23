@@ -75,7 +75,7 @@ class PandasAgent:
         elif "import pandas" in cleaned:
             code = cleaned[cleaned.find("import pandas"):].strip()
         else:
-            return 'import pandas as pd\nprint(0.0)'
+            return 'import pandas as pd\n# GENERATION_FAILED\nprint(0.0)'
         # Cắt bỏ text giải thích sau code nếu model lỡ viết thêm.
         code = re.split(r'\n\s*(?:Explanation|Giải thích|Notes?):', code, maxsplit=1)[0].strip()
         return code if "print(" in code else code + "\nprint(0.0)"
@@ -96,30 +96,31 @@ class PandasAgent:
         return [t for t in tokens if len(t) > 1 and t not in self._PREVIEW_STOPWORDS]
 
     def get_csv_preview(self, csv_paths: list, question: str = None) -> str:
+        """Prompt gọn: head(8) + tối đa 3 dòng liên quan để tránh context truncation."""
         context = []
-        keywords = self._question_keywords(question or "")
+        noisy_keywords = {"chi", "phí", "tiền", "số", "dư", "khác", "khoản", "hoạt", "động"}
+        keywords = [k for k in self._question_keywords(question or "") if k not in noisy_keywords]
         for path in csv_paths:
             real_path = path if os.path.exists(path) else path.replace("data/", "", 1)
             if not os.path.exists(real_path):
                 continue
             try:
                 df = pd.read_csv(real_path)
-                n = min(5, len(df))
-                parts = [
+                n = min(8, len(df))
+                preview = (
                     f"--- File: {path} ---\n"
-                    f"Shape: {df.shape[0]} rows x {df.shape[1]} cols\n"
                     f"Columns: {list(df.columns)}\n"
                     f"Data (first {n} rows):\n{df.head(n).to_string()}"
-                ]
+                )
                 if keywords and "Chi_tieu" in df.columns:
                     s = df["Chi_tieu"].astype(str).str.lower()
                     mask = pd.Series(False, index=df.index)
-                    for kw in keywords:
+                    for kw in keywords[:5]:
                         mask |= s.str.contains(kw, case=False, na=False, regex=False)
-                    rel = df.loc[mask].head(12)
+                    rel = df.loc[mask].head(3)
                     if not rel.empty:
-                        parts.append(f"Relevant rows by question keywords:\n{rel.to_string()}")
-                context.append("\n".join(parts) + "\n")
+                        preview += f"\nRelevant rows:\n{rel.to_string()}"
+                context.append(preview + "\n")
             except Exception as e:
                 context.append(f"--- File: {path} (Error: {e}) ---\n")
         return "\n".join(context)
@@ -227,7 +228,7 @@ class PandasAgent:
         return prompt
 
     def _generate_transformers(self, prompt):
-        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=3584)
+        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=6144)
         first_device = next(iter(self.model.parameters())).device
         inputs = {k: v.to(first_device) for k, v in inputs.items()}
         with torch.no_grad():
