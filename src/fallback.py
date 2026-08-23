@@ -38,6 +38,21 @@ _PHRASES = [
     ("vay ngan han", ["vay", "ngan", "han"]),
     ("luu chuyen tien thuan tu hoat dong kinh doanh", ["luu", "chuyen", "tien", "thuan", "hoat", "dong", "kinh", "doanh"]),
     ("nguyen gia", ["nguyen", "gia"]),
+    ("chi phi du phong rui ro tin dung", ["chi", "phi", "du", "phong", "rui", "ro", "tin", "dung"]),
+    ("chi phi du phong", ["chi", "phi", "du", "phong"]),
+    ("loi nhuan sau thue", ["loi", "nhuan", "sau", "thue"]),
+    ("tong quy luong", ["tong", "quy", "luong"]),
+    ("chi phi dich vu mua ngoai", ["chi", "phi", "dich", "vu", "mua", "ngoai"]),
+    ("phai thu ngan han khac", ["phai", "thu", "ngan", "han", "khac"]),
+    ("thue thu nhap doanh nghiep", ["thue", "thu", "nhap", "doanh", "nghiep"]),
+    ("thue thu nhap doanh nghiep phai tra", ["thue", "thu", "nhap", "doanh", "nghiep", "phai", "tra"]),
+    ("thue tndn phai tra", ["thue", "tndn", "phai", "tra"]),
+    ("ty le quyen bieu quyet", ["ty", "le", "quyen", "bieu", "quyet"]),
+    ("ty le bieu quyet", ["ty", "le", "bieu", "quyet"]),
+    ("thu lao", ["thu", "lao"]),
+    ("cam ket cho thue hoat dong", ["cam", "ket", "cho", "thue", "hoat", "dong"]),
+    ("loi the thuong mai", ["loi", "the", "thuong", "mai"]),
+    ("cho vay khach hang", ["cho", "vay", "khach", "hang"]),
 ]
 
 
@@ -111,6 +126,25 @@ def _question_tokens(question: str) -> list:
     return [t for t in toks if len(t) > 1 and t not in _STOPWORDS]
 
 
+def _extract_ticker_year(question: str):
+    year_match = re.search(r"\b(20\d{2})\b", question)
+    tickers = re.findall(r"\b[A-Z]{2,5}\b", question)
+    ticker = tickers[-1] if tickers else None
+    return ticker, year_match.group(1) if year_match else None
+
+
+def _candidate_paths(question: str, csv_paths: list) -> list:
+    paths = list(dict.fromkeys(csv_paths))
+    ticker, year = _extract_ticker_year(question)
+    if ticker and year:
+        folder = os.path.join("data", "processed_csv", ticker)
+        if os.path.isdir(folder):
+            prefix = f"{ticker}_{year}_"
+            extra = [os.path.join(folder, name).replace("\\", "/") for name in os.listdir(folder) if name.startswith(prefix) and name.endswith(".csv")]
+            paths.extend(extra)
+    return list(dict.fromkeys(paths))
+
+
 def _row_score(question: str, path: str, chi_tieu: str) -> float:
     q = normalize_text(question)
     row = normalize_text(chi_tieu)
@@ -142,6 +176,28 @@ def _row_score(question: str, path: str, chi_tieu: str) -> float:
         score += 4.0
     if "tong" in q and row.startswith("tong"):
         score += 3.0
+    if "phai thu" in q and "phai tra" in row:
+        score -= 8.0
+    if "phai tra" in q and "phai thu" in row:
+        score -= 8.0
+    if "vay ngan han" in q and "cho vay ngan han" in row:
+        score -= 10.0
+    if "loi the thuong mai" in q and "loi the thuong mai" not in row:
+        score -= 10.0
+    if "chi phi du phong" in q and "truoc chi phi du phong" in row:
+        score -= 8.0
+    if ("so du" in q or "phai tra" in q or "phai nop" in q) and row.startswith("chi phi"):
+        score -= 8.0
+    if "quyen bieu quyet" in q and "quyen bieu quyet" not in row and "bieu quyet" not in row:
+        score -= 5.0
+    if "thuong mai" in q and "thuong mai" not in row:
+        score -= 10.0
+    if "chu thi binh" in q and "chu thi binh" not in row:
+        score -= 10.0
+    if "cam ket" in q and "cam ket" not in row:
+        score -= 10.0
+    if "gia tri con lai" in q and "gia tri con lai" not in row and "con lai" not in row:
+        score -= 8.0
     return score
 
 
@@ -164,7 +220,7 @@ def _make_query(csv_path: str, row_index: int, target_unit: str, answer: float) 
 def try_rule_based_answer(question: str, csv_paths: list, min_score: float = 9.0) -> Optional[FallbackResult]:
     target_unit = detect_target_unit(question)
     best = None
-    for path in csv_paths:
+    for path in _candidate_paths(question, csv_paths):
         real_path = path if os.path.exists(path) else path.replace("data/", "", 1)
         if not os.path.exists(real_path):
             continue
@@ -184,7 +240,8 @@ def try_rule_based_answer(question: str, csv_paths: list, min_score: float = 9.0
                 continue
             answer = convert_unit(value, row.get("Don_vi", ""), target_unit)
             qnorm = normalize_text(question)
-            if answer < 0 and any(k in qnorm for k in ["lai", "thu nhap", "doanh thu", "loi nhuan"]):
+            is_cashflow_question = "luu chuyen" in qnorm or "dong tien" in qnorm
+            if answer < 0 and not is_cashflow_question and any(k in qnorm for k in ["chi phi", "lai", "thu nhap", "doanh thu", "loi nhuan"]):
                 answer = abs(answer)
             candidate = FallbackResult(round(float(answer), 2), _make_query(path, idx, target_unit, answer), path, int(idx), score)
             if best is None or candidate.score > best.score:
