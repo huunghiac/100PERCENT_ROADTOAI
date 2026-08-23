@@ -139,7 +139,8 @@ class TableRetriever:
         if {"lợi", "nhuận"} & qt or {"doanh", "thu"} <= qt or "chi" in qt:
             if "baocaoketqua" in p or "ketquakinhdoanh" in p or "ketquahoatdong" in p:
                 bonus += 3.0
-        if "lưu" in qt or "chuyển" in qt or "tiền" in qt:
+        # Chỉ boost LCTT khi câu hỏi thật sự hỏi "lưu chuyển"; token "tiền" đơn lẻ quá nhiễu.
+        if {"lưu", "chuyển"} <= qt or "luuchuyen" in qt:
             if "luuchuyentiente" in p or "lưuchuyểntiềntệ" in p:
                 bonus += 5.0
         if "tài" in qt and ("sản" in qt or "san" in p):

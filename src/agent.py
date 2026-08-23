@@ -68,27 +68,58 @@ class PandasAgent:
         # Xóa <think>...</think> block (có hoặc không đóng tag)
         cleaned = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL).strip()
         cleaned = re.sub(r'<think>.*', '', cleaned, flags=re.DOTALL).strip()
+        cleaned = re.sub(r'^\s*NEW\s+CODE:\s*', '', cleaned, flags=re.IGNORECASE)
         code_match = re.search(r'```(?:python)?\s*(.*?)\s*```', cleaned, re.DOTALL)
         if code_match:
-            return code_match.group(1).strip()
-        return cleaned
+            code = code_match.group(1).strip()
+        elif "import pandas" in cleaned:
+            code = cleaned[cleaned.find("import pandas"):].strip()
+        else:
+            return 'import pandas as pd\nprint(0.0)'
+        # Cắt bỏ text giải thích sau code nếu model lỡ viết thêm.
+        code = re.split(r'\n\s*(?:Explanation|Giải thích|Notes?):', code, maxsplit=1)[0].strip()
+        return code if "print(" in code else code + "\nprint(0.0)"
 
-    def get_csv_preview(self, csv_paths: list) -> str:
+    _PREVIEW_STOPWORDS = {
+        "của", "cho", "và", "vào", "cuối", "trong", "năm", "là", "bao", "nhiêu",
+        "đồng", "triệu", "tỷ", "nghìn", "ngày", "tháng", "đến", "tại", "với",
+        "công", "ty", "ctcp", "tnhh", "tmcp", "ngân", "hàng", "tổng", "tập", "đoàn",
+        "mẹ", "hợp", "nhất", "riêng", "báo", "cáo", "đơn", "vị", "theo", "các",
+    }
+
+    def _question_keywords(self, question: str) -> list:
+        if not question:
+            return []
+        q = re.sub(r'\b20\d{2}\b', ' ', question.lower())
+        q = re.sub(r'\b[A-Z]{2,4}\b', ' ', q)
+        tokens = re.findall(r"[\wÀ-ỹ]+", q, flags=re.UNICODE)
+        return [t for t in tokens if len(t) > 1 and t not in self._PREVIEW_STOPWORDS]
+
+    def get_csv_preview(self, csv_paths: list, question: str = None) -> str:
         context = []
+        keywords = self._question_keywords(question or "")
         for path in csv_paths:
             real_path = path if os.path.exists(path) else path.replace("data/", "", 1)
             if not os.path.exists(real_path):
                 continue
             try:
                 df = pd.read_csv(real_path)
-                n = min(10, len(df))
-                preview = (
+                n = min(5, len(df))
+                parts = [
                     f"--- File: {path} ---\n"
                     f"Shape: {df.shape[0]} rows x {df.shape[1]} cols\n"
                     f"Columns: {list(df.columns)}\n"
-                    f"Data (first {n} rows):\n{df.head(n).to_string()}\n"
-                )
-                context.append(preview)
+                    f"Data (first {n} rows):\n{df.head(n).to_string()}"
+                ]
+                if keywords and "Chi_tieu" in df.columns:
+                    s = df["Chi_tieu"].astype(str).str.lower()
+                    mask = pd.Series(False, index=df.index)
+                    for kw in keywords:
+                        mask |= s.str.contains(kw, case=False, na=False, regex=False)
+                    rel = df.loc[mask].head(12)
+                    if not rel.empty:
+                        parts.append(f"Relevant rows by question keywords:\n{rel.to_string()}")
+                context.append("\n".join(parts) + "\n")
             except Exception as e:
                 context.append(f"--- File: {path} (Error: {e}) ---\n")
         return "\n".join(context)
@@ -109,7 +140,7 @@ class PandasAgent:
 
 
     def _build_prompt(self, question, csv_paths, error_log=None):
-        csv_context = self.get_csv_preview(csv_paths)
+        csv_context = self.get_csv_preview(csv_paths, question)
         unit_request = self._detect_unit_request(question)
         unit_note = ""
         if unit_request:
@@ -123,7 +154,8 @@ class PandasAgent:
                 f'- If CSV unit is "Triệu VND"/"Trieu VND" and question asks "tỷ đồng": divide by 1,000\n'
                 f'- If CSV unit is "Triệu VND"/"Trieu VND" and question asks "triệu đồng": no conversion\n'
                 f'- If CSV unit already matches question unit: no conversion needed\n'
-                f'- Round to 2 decimal places for tỷ, 0 for triệu/VND\n'
+                f'- If Don_vi is blank/NaN, assume Gia_tri is raw VND\n'
+                f'- Round final numeric answer to 2 decimal places\n'
             )
         prompt = (
             'You are a Python/Pandas expert. Write ONLY Python code to answer the question.\n\n'
@@ -132,8 +164,12 @@ class PandasAgent:
             '- CSV has columns: Chi_tieu (indicator name in Vietnamese WITH DIACRITICS), Gia_tri (numeric value), Don_vi (unit)\n'
             '- Search ALL provided CSV files. Do not stop at first file unless a strong match is found.\n'
             '- NEVER use the whole question inside str.contains(). Use only short indicator keywords from Chi_tieu.\n'
+            '- NEVER include ticker, year, company name, "công ty mẹ", "hợp nhất", unit words, or question words in Chi_tieu regex.\n'
             '- Prefer flexible matching: multiple keywords or regex with .* between words. Example: "Lợi nhuận.*sau thuế" matches "LỢI NHUẬN KẾ TOÁN SAU THUẾ TNDN".\n'
+            '- Bad regex: r"Vốn cổ phần.*VGT.*2024". Good regex: r"Vốn cổ phần.*phát hành".\n'
+            '- For income/revenue/profit/interest amounts (lãi, thu nhập, doanh thu, lợi nhuận), if matched cash-flow adjustment value is negative, use abs(value), unless the question asks cash flow/payment/loss.\n'
             '- Check match.empty before reading values[0]. If no match found in all files, print(0.0).\n'
+            '- Do not write labels such as NEW CODE or explanations outside the code block.\n'
             '- The final output MUST be exactly one number. No text, no units.\n'
             '- Output code inside ```python ... ``` block.\n'
             f'{unit_note}\n'
@@ -142,7 +178,9 @@ class PandasAgent:
             f'target_unit = "{unit_request or ""}"  # unit asked by the question; keep empty if none\n\n'
             'def convert_unit(value, source_unit, target_unit):\n'
             '    value = float(value)\n'
-            '    u = str(source_unit).lower()\n'
+            '    u = "" if pd.isna(source_unit) else str(source_unit).lower().strip()\n'
+            '    if u == "" or u == "nan":\n'
+            '        u = "vnd"\n'
             '    t = str(target_unit).lower()\n'
             '    is_vnd = "vnd" in u or "đồng" in u\n'
             '    is_trieu = "trieu" in u or "triệu" in u\n'
@@ -177,6 +215,9 @@ class PandasAgent:
             '    if not m.empty:\n'
             '        row = m.iloc[0]\n'
             '        answer = convert_unit(row["Gia_tri"], row.get("Don_vi", ""), target_unit)\n'
+            '        # If question asks income/profit/revenue/interest and cash-flow row is negative, output positive amount.\n'
+            '        if answer < 0:\n'
+            '            answer = abs(answer)\n'
             '        break\n'
             'print(round(answer, 2) if answer is not None else 0.0)\n```\n\n'
             f'NOW SOLVE THIS:\nQuestion: {question}\n\nAvailable data:\n{csv_context}\n'
