@@ -22,11 +22,11 @@ except ImportError:
 
 class PandasAgent:
     def __init__(self,
-                 model_name="deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
+                 model_name="Qwen/Qwen2.5-Coder-7B-Instruct",
                  base_url="http://localhost:11434",
                  backend="auto",
                  torch_dtype=None,
-                 max_new_tokens=1024):
+                 max_new_tokens=512):
         """
         backend: "auto" | "transformers" | "ollama"
         """
@@ -45,7 +45,7 @@ class PandasAgent:
             # Detect GPU memory → ép accelerate dùng hết VRAM trước khi fallback CPU
             if torch.cuda.is_available():
                 max_memory = {
-                    i: f"{int(torch.cuda.get_device_properties(i).total_memory * 0.70 / 1e9)}GiB"
+                    i: f"{int(torch.cuda.get_device_properties(i).total_memory * 0.90 / 1e9)}GiB"
                     for i in range(torch.cuda.device_count())
                 }
                 max_memory["cpu"] = "32GiB"

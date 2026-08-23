@@ -72,15 +72,15 @@ for i in range(torch.cuda.device_count()):
 
 ---
 
-### Cell 4: Tải và khởi tạo mô hình DeepSeek
+### Cell 4: Tải và khởi tạo mô hình Qwen2.5-Coder-7B
 
-Model ~9GB, tải lần đầu mất ~2-3 phút, lưu vào GPU memory tự động:
+Model ~14GB fp16, vừa 1 GPU T4 (15GB). Tải lần đầu mất ~1-2 phút:
 
 ```python
 from agent import PandasAgent
 
 agent = PandasAgent(
-    model_name='deepseek-ai/DeepSeek-R1-Distill-Qwen-14B',
+    model_name='Qwen/Qwen2.5-Coder-7B-Instruct',
     backend='transformers',
     torch_dtype=torch.float16
 )
