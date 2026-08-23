@@ -26,7 +26,7 @@ class PandasAgent:
                  base_url="http://localhost:11434",
                  backend="auto",
                  torch_dtype=None,
-                 max_new_tokens=512):
+                 max_new_tokens=1024):
         """
         backend: "auto" | "transformers" | "ollama"
         """
@@ -65,7 +65,9 @@ class PandasAgent:
             self.model = None
 
     def clean_response(self, text: str) -> str:
+        # Xóa <think>...</think> block (có hoặc không đóng tag)
         cleaned = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL).strip()
+        cleaned = re.sub(r'<think>.*', '', cleaned, flags=re.DOTALL).strip()
         code_match = re.search(r'```(?:python)?\s*(.*?)\s*```', cleaned, re.DOTALL)
         if code_match:
             return code_match.group(1).strip()
@@ -79,7 +81,7 @@ class PandasAgent:
                 continue
             try:
                 df = pd.read_csv(real_path)
-                n = min(30, len(df))
+                n = min(10, len(df))
                 preview = (
                     f"--- File: {path} ---\n"
                     f"Shape: {df.shape[0]} rows x {df.shape[1]} cols\n"
@@ -146,7 +148,7 @@ class PandasAgent:
         return prompt
 
     def _generate_transformers(self, prompt):
-        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=3584)
+        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=2048)
         first_device = next(iter(self.model.parameters())).device
         inputs = {k: v.to(first_device) for k, v in inputs.items()}
         with torch.no_grad():
