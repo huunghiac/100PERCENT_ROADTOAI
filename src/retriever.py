@@ -107,39 +107,99 @@ class TableRetriever:
         year = year_match.group(1) if year_match else None
         return ticker, year
 
+    _QUESTION_STOPWORDS = {
+        "của", "cho", "và", "vào", "cuối", "trong", "năm", "là", "bao", "nhiêu",
+        "đồng", "triệu", "tỷ", "nghìn", "ngày", "tháng", "đến", "tại", "với",
+        "công", "ty", "ctcp", "tnhh", "tmcp", "ngân", "hàng", "tổng", "tập", "đoàn",
+        "mẹ", "hợp", "nhất", "riêng", "báo", "cáo", "đơn", "vị",
+    }
+
+    def _tokenize(self, text: str) -> list:
+        return re.findall(r"[\wÀ-ỹ]+", text.lower(), flags=re.UNICODE)
+
+    def _clean_query_tokens(self, question: str) -> list:
+        """Giữ token chỉ tiêu, bỏ ticker/year/company/unit/question filler đã được filter ở tầng 1."""
+        ticker, year = self.extract_entities(question)
+        q = question.lower()
+        if ticker:
+            q = re.sub(rf"\b{re.escape(ticker.lower())}\b", " ", q)
+            for name_key, mapped_ticker in self.name_to_ticker.items():
+                if mapped_ticker == ticker:
+                    q = q.replace(name_key, " ")
+        if year:
+            q = q.replace(year, " ")
+        tokens = [t for t in self._tokenize(q) if t not in self._QUESTION_STOPWORDS and len(t) > 1]
+        return tokens or self._tokenize(question)
+
+    def _path_bonus(self, question_tokens: list, path: str) -> float:
+        """Generic financial-statement prior from indicator intent, not question ID."""
+        p = path.lower()
+        qt = set(question_tokens)
+        bonus = 0.0
+        if {"lợi", "nhuận"} & qt or {"doanh", "thu"} <= qt or "chi" in qt:
+            if "baocaoketqua" in p or "ketquakinhdoanh" in p or "ketquahoatdong" in p:
+                bonus += 3.0
+        if "lưu" in qt or "chuyển" in qt or "tiền" in qt:
+            if "luuchuyentiente" in p or "lưuchuyểntiềntệ" in p:
+                bonus += 5.0
+        if "tài" in qt and ("sản" in qt or "san" in p):
+            if "bangcandoi" in p or "tinhhinhtaichinh" in p:
+                bonus += 3.0
+        if "dự" in qt or "phòng" in qt or "duphong" in p:
+            if "duphong" in p or "chiphihoatdong" in p:
+                bonus += 2.0
+        if "vay" in qt or "cho" in qt:
+            if "chovay" in p or "khachhang" in p:
+                bonus += 2.0
+        return bonus
+
     def _bm25_rank(self, question: str, csv_paths: list, top_k: int) -> list:
-        """Xếp hạng csv_paths theo BM25 dựa trên metadata manifest + nội dung Chi_tieu."""
+        """Xếp hạng csv_paths theo BM25 đã clean query + boost nội dung Chi_tieu."""
         if not csv_paths:
             return []
+        query_tokens = self._clean_query_tokens(question)
         corpus_tokens = []
         valid_paths = []
+        chi_tieu_cache = {}
         for p in csv_paths:
             entry = self.manifest.get(p, {})
-            doc = " ".join([
+            metadata = " ".join([
                 entry.get("table_title", ""),
                 entry.get("table_slug", ""),
-                entry.get("company_name", ""),
                 entry.get("report_type", ""),
             ])
-            # Enrich: thêm Chi_tieu values từ CSV content
+            chi_tieu_text = ""
             real_path = p if os.path.exists(p) else p.replace("data/", "", 1)
             if os.path.exists(real_path):
                 try:
-                    df = pd.read_csv(real_path, usecols=["Chi_tieu"], nrows=50)
-                    chi_tieu_text = " ".join(df["Chi_tieu"].dropna().astype(str).tolist())
-                    doc += " " + chi_tieu_text
+                    df = pd.read_csv(real_path, usecols=["Chi_tieu"], nrows=80)
+                    values = df["Chi_tieu"].dropna().astype(str).tolist()
+                    chi_tieu_text = " ".join(values)
+                    chi_tieu_cache[p] = " ".join(values).lower()
                 except Exception:
-                    pass
-            tokens = doc.lower().split()
+                    chi_tieu_cache[p] = ""
+            # Chi_tieu weighted higher than metadata because user asks about indicators.
+            doc = f"{metadata} {chi_tieu_text} {chi_tieu_text} {chi_tieu_text}"
+            tokens = self._tokenize(doc)
             if tokens:
                 corpus_tokens.append(tokens)
                 valid_paths.append(p)
         if not corpus_tokens:
             return csv_paths[:top_k]
+
         bm25 = BM25Okapi(corpus_tokens)
-        query_tokens = question.lower().split()
-        scores = bm25.get_scores(query_tokens)
-        ranked = sorted(zip(valid_paths, scores), key=lambda x: x[1], reverse=True)
+        base_scores = bm25.get_scores(query_tokens)
+        scored = []
+        for p, score in zip(valid_paths, base_scores):
+            text = chi_tieu_cache.get(p, "")
+            bonus = self._path_bonus(query_tokens, p)
+            hits = sum(1 for t in query_tokens if t in text)
+            if query_tokens and hits == len(set(query_tokens)):
+                bonus += 6.0
+            elif hits >= max(2, len(set(query_tokens)) // 2):
+                bonus += 2.0
+            scored.append((p, float(score) + bonus))
+        ranked = sorted(scored, key=lambda x: x[1], reverse=True)
         return [p for p, _ in ranked[:top_k]]
 
     def _detect_report_type(self, question: str):
