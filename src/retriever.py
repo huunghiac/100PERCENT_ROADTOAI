@@ -77,34 +77,51 @@ class TableRetriever:
                 best_ticker = ticker
         return best_ticker
 
+    def extract_all_entities(self, question: str):
+        """
+        Trích xuất TẤT CẢ Tickers và Năm từ câu hỏi (hỗ trợ so sánh nhiều công ty / nhiều năm).
+        """
+        tickers = []
+        q_lower = question.lower()
+
+        # 1. Tickers trong ngoặc: (VJC), (ACB)
+        parens = re.findall(r'\(([A-Z][A-Z0-9]{1,3})\)', question)
+        for p in parens:
+            if p not in self._NOISE_TICKERS and p in self.ticker_set and p not in tickers:
+                tickers.append(p)
+
+        # 2. Match company names
+        for name_key, ticker in self.name_to_ticker.items():
+            if name_key in q_lower and ticker not in tickers:
+                tickers.append(ticker)
+
+        # 3. Bare uppercase match (e.g. "nhóm MSN, MCH, DBC, ASM và OGC")
+        for c in re.findall(r'\b([A-Z][A-Z0-9]{1,3})\b', question):
+            if c not in self._NOISE_TICKERS and c in self.ticker_set and c not in tickers:
+                tickers.append(c)
+
+        # 4. Years: 2016-2020 range hoặc các năm riêng lẻ
+        years = []
+        # Pattern 2016-2020
+        range_match = re.search(r'\b(20\d{2})\s*[-–]\s*(20\d{2})\b', question)
+        if range_match:
+            start_y, end_y = int(range_match.group(1)), int(range_match.group(2))
+            if start_y <= end_y and (end_y - start_y) <= 10:
+                for y in range(start_y, end_y + 1):
+                    years.append(str(y))
+
+        # Individual years
+        for y in re.findall(r'\b(20\d{2})\b', question):
+            if y not in years:
+                years.append(y)
+
+        # Primary single ticker & year for backward compatibility
+        ticker = tickers[0] if tickers else None
+        year = years[0] if years else None
+        return ticker, year, tickers, years
+
     def extract_entities(self, question: str):
-        """
-        Trích xuất Mã CK và Năm từ câu hỏi.
-        Ưu tiên:
-          P1: Ticker trong ngoặc đơn (VJC)
-          P2: Company name substring match (longest match wins)
-          P3: Bare uppercase match known tickers (fallback)
-        """
-        ticker = None
-        # P1: Trong ngoặc đơn
-        paren = re.search(r'\(([A-Z][A-Z0-9]{1,3})\)', question)
-        if paren and paren.group(1) not in self._NOISE_TICKERS:
-            if paren.group(1) in self.ticker_set:
-                ticker = paren.group(1)
-        # P2: Company name substring match (takes priority over bare ticker)
-        if not ticker:
-            ticker = self._extract_ticker_from_name(question)
-        # P3: Bare uppercase match known tickers
-        if not ticker:
-            for c in re.findall(r'\b([A-Z][A-Z0-9]{1,3})\b', question):
-                if c in self._NOISE_TICKERS:
-                    continue
-                if c in self.ticker_set:
-                    ticker = c
-                    break
-        # Year
-        year_match = re.search(r'\b(20\d{2})\b', question)
-        year = year_match.group(1) if year_match else None
+        ticker, year, _, _ = self.extract_all_entities(question)
         return ticker, year
 
     _QUESTION_STOPWORDS = {
@@ -212,22 +229,62 @@ class TableRetriever:
             return "consolidated"
         return None
 
-    def retrieve(self, question: str, top_k: int = 5) -> list:
+    def retrieve(self, question: str, top_k: int = None) -> list:
         """
         Đầu vào: Câu hỏi tiếng Việt.
-        Đầu ra: Danh sách đường dẫn CSV, tối đa top_k.
+        Đầu ra: Danh sách đường dẫn CSV (dynamic / adaptive).
+        - Nếu 1 ticker, 1 năm: trả về top 1-2 bảng chính xác nhất (tránh nhiễu context).
+        - Nếu nhiều ticker hoặc nhiều năm (multi-year/multi-company): tự động lấy top bảng cho từng thực thể.
         """
-        ticker, year = self.extract_entities(question)
+        _, _, tickers, years = self.extract_all_entities(question)
         report_type = self._detect_report_type(question)
 
         if not os.path.exists(self.csv_dir) or not os.listdir(self.csv_dir):
             print(f"[Retriever] WARNING: csv_dir '{self.csv_dir}' empty or missing.")
             return []
 
-        # Tầng 1: Glob filter (CSV nằm trong subdir theo ticker)
+        # TH1: Multi-company hoặc Multi-year -> Dynamic gather
+        is_multi = len(tickers) > 1 or len(years) > 1
+        if is_multi:
+            target_tickers = tickers if tickers else [None]
+            target_years = years if years else [None]
+            gathered_paths = []
+
+            for t in target_tickers:
+                for y in target_years:
+                    matching = []
+                    if t and y:
+                        matching = glob.glob(f"{self.csv_dir}/{t}/{t}_{y}_*.csv")
+                        if not matching:
+                            matching = glob.glob(f"{self.csv_dir}/{t}/{t}_*.csv")
+                    elif t:
+                        matching = glob.glob(f"{self.csv_dir}/{t}/{t}_*.csv")
+                    elif y:
+                        matching = glob.glob(f"{self.csv_dir}/*/*_{y}_*.csv")
+
+                    matching = [f.replace("\\", "/") for f in matching]
+                    if report_type:
+                        filtered = [f for f in matching if report_type in f]
+                        if filtered:
+                            matching = filtered
+
+                    # Lấy top 1 bảng tốt nhất cho từng (ticker, year)
+                    if matching:
+                        best = self._bm25_rank(question, matching, top_k=1)
+                        for p in best:
+                            if p not in gathered_paths:
+                                gathered_paths.append(p)
+
+            if gathered_paths:
+                max_k = top_k if top_k is not None else 10
+                return gathered_paths[:max_k]
+
+        # TH2: Đơn ticker / đơn year (hoặc không nhận diện được)
+        ticker = tickers[0] if tickers else None
+        year = years[0] if years else None
+
         if ticker and year:
             matching = glob.glob(f"{self.csv_dir}/{ticker}/{ticker}_{year}_*.csv")
-            # Fallback: bỏ year nếu ticker+year không ra
             if not matching:
                 matching = glob.glob(f"{self.csv_dir}/{ticker}/{ticker}_*.csv")
         elif ticker:
@@ -241,15 +298,15 @@ class TableRetriever:
 
         matching = [f.replace("\\", "/") for f in matching]
 
-        # Lọc report_type nếu phát hiện
         if report_type:
             filtered = [f for f in matching if report_type in f]
             if filtered:
                 matching = filtered
 
-        # Tầng 2: BM25 ranking
-        ranked = self._bm25_rank(question, matching, top_k)
-        return ranked if ranked else matching[:top_k]
+        # Đối với câu đơn: mặc định top_k = 2 (đủ 1 chính + 1 dự phòng), trừ khi có truyền top_k ngoài
+        k = top_k if top_k is not None else 2
+        ranked = self._bm25_rank(question, matching, top_k=k)
+        return ranked if ranked else matching[:k]
 
 
 if __name__ == "__main__":
