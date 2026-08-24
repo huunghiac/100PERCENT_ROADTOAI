@@ -4,10 +4,10 @@ Dùng cho môi trường thuê GPU như RunPod, Vast.ai, Lambda Labs, Paperspace
 
 Cấu hình khuyên dùng hiện tại:
 
-- **GPU**: NVIDIA RTX A6000 48GB VRAM
+- **GPU**: NVIDIA A40 48GB VRAM hoặc RTX A6000 48GB VRAM
 - **Model**: `Qwen/Qwen2.5-Coder-14B-Instruct`
 - **Backend**: `transformers`
-- **Precision**: `bfloat16`
+- **Precision**: `float16` cho A40, `bfloat16` cũng được với A6000
 - **Không cần quantize** 4-bit/8-bit
 
 Repo:
@@ -44,7 +44,7 @@ apt-get update && apt-get install -y git-lfs
 git lfs install
 
 if [ ! -d "Road-to-AI" ]; then
-  git clone https://github.com/huunghiac/100PERCENT_ROADTOAI.git Road-to-AI
+  git clone https://huggingface.co/datasets/huunghiac/vifinqa Road-to-AI
 fi
 
 cd Road-to-AI
@@ -154,20 +154,17 @@ os.environ['TRANSFORMERS_CACHE'] = '/workspace/hf_cache'
 agent = PandasAgent(
     model_name='Qwen/Qwen2.5-Coder-14B-Instruct',
     backend='transformers',
-    torch_dtype=torch.bfloat16,
-    max_length=6144,
+    torch_dtype=torch.float16,
 )
 
 print('PandasAgent loaded successfully!')
 ```
 
-Nếu gặp lỗi `bfloat16` trên GPU khác, đổi sang:
+Với A40, giữ `torch.float16`. Với RTX A6000, có thể đổi sang:
 
 ```python
-torch_dtype=torch.float16
+torch_dtype=torch.bfloat16
 ```
-
-Với RTX A6000, `torch.bfloat16` chạy được.
 
 ---
 

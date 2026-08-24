@@ -57,7 +57,7 @@ class PandasAgent:
                 trust_remote_code=True,
             )
             self.model.eval()
-            print(f"[Agent] Model loaded. Device map: {self.model.hf_device_map}")
+            print(f"[Agent] Model loaded. Device map: {getattr(self.model, 'hf_device_map', 'single-gpu')}")
         else:
             self.model_name = model_name
             self.api_url = f"{base_url}/api/generate"
