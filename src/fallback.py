@@ -253,10 +253,10 @@ def _row_score(question: str, path: str, chi_tieu: str) -> float:
 
 
 def _make_query(csv_path: str, row_index: int, target_unit: str, answer: float) -> str:
-    safe_path = csv_path.replace("\\", "/")
+    flat_path = f"data/{os.path.basename(csv_path)}"
     return (
         "import pandas as pd\n"
-        f"df = pd.read_csv({safe_path!r})\n"
+        f"df = pd.read_csv({flat_path!r})\n"
         f"row = df.iloc[{int(row_index)}]\n"
         "value = float(row['Gia_tri'])\n"
         "unit = '' if pd.isna(row.get('Don_vi', '')) else str(row.get('Don_vi', '')).lower().strip()\n"

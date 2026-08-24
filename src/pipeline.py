@@ -33,6 +33,7 @@ def _build_submission_fields(csv_paths: list, manifest: dict):
     """
     Sinh relevant_docs, relevant_tables, evidence đúng schema BTC.
     evidence[i].variable = "df1", "df2", ...  (hợp lệ Python, không trùng)
+    evidence[i].csv_path = "data/<filename.csv>" (phẳng trong data/)
     """
     relevant_docs = []
     relevant_tables = []
@@ -41,16 +42,11 @@ def _build_submission_fields(csv_paths: list, manifest: dict):
 
     for i, csv_path in enumerate(csv_paths):
         var_name = f"df{i + 1}"
-        # csv_path trong submission phải bắt đầu bằng data/
-        # csv_path đã có dạng data/processed_csv/TICKER/file.csv
-        if csv_path.startswith("data/"):
-            arc_path = csv_path
-        else:
-            arc_path = f"data/{csv_path}"
+        # Flat structure: data/<filename.csv>
+        flat_path = f"data/{os.path.basename(csv_path)}"
+        evidence.append({"variable": var_name, "csv_path": flat_path})
 
-        evidence.append({"variable": var_name, "csv_path": arc_path})
-
-        entry = manifest.get(csv_path, manifest.get(arc_path, {}))
+        entry = manifest.get(csv_path, manifest.get(flat_path, {}))
         source_txt = entry.get("source_txt", "")
         table_index = entry.get("source_table_index", None)
 
@@ -240,8 +236,15 @@ def run_full_pipeline(questions_file="data/raw_vifinqa/questions.jsonl",
         zf.write(output_json, arcname=os.path.basename(output_json))
         for csv_path in used_csv_paths:
             real_path = csv_path if os.path.exists(csv_path) else csv_path.replace("data/", "", 1)
+            if not os.path.exists(real_path):
+                # Search in data/processed_csv/<ticker>/<basename>
+                bn = os.path.basename(csv_path)
+                ticker = bn.split("_")[0] if "_" in bn else ""
+                cand = os.path.join("data", "processed_csv", ticker, bn)
+                if os.path.exists(cand):
+                    real_path = cand
             if os.path.exists(real_path):
-                arc_name = csv_path if csv_path.startswith("data/") else f"data/{os.path.basename(csv_path)}"
+                arc_name = f"data/{os.path.basename(real_path)}"
                 zf.write(real_path, arcname=arc_name)
             else:
                 print(f"  [Warn] {real_path} not found, skipping.")

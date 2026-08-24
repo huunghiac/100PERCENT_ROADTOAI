@@ -51,6 +51,8 @@ def validate(path="submission.json"):
                     errors.append(f"Item {i}, evidence[{j}]: missing 'csv_path'")
                 elif not e["csv_path"].startswith("data/"):
                     errors.append(f"Item {i}, evidence[{j}]: csv_path must start with 'data/', got '{e['csv_path']}'")
+                elif e["csv_path"].count("/") > 1 or "\\" in e["csv_path"]:
+                    errors.append(f"Item {i}, evidence[{j}]: csv_path must be flat 'data/<file>.csv', got '{e['csv_path']}'")
 
     if errors:
         print(f"[FAIL] {len(errors)} validation errors:")

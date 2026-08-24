@@ -103,12 +103,20 @@ class PandasAgent:
         for path in csv_paths:
             real_path = path if os.path.exists(path) else path.replace("data/", "", 1)
             if not os.path.exists(real_path):
-                continue
+                # Search fallback in data/processed_csv
+                bn = os.path.basename(path)
+                ticker = bn.split("_")[0] if "_" in bn else ""
+                cand = os.path.join("data", "processed_csv", ticker, bn)
+                if os.path.exists(cand):
+                    real_path = cand
+                else:
+                    continue
             try:
                 df = pd.read_csv(real_path)
+                flat_name = f"data/{os.path.basename(path)}"
                 n = min(8, len(df))
                 preview = (
-                    f"--- File: {path} ---\n"
+                    f"--- File: {flat_name} ---\n"
                     f"Columns: {list(df.columns)}\n"
                     f"Data (first {n} rows):\n{df.head(n).to_string()}"
                 )
@@ -122,7 +130,8 @@ class PandasAgent:
                         preview += f"\nRelevant rows:\n{rel.to_string()}"
                 context.append(preview + "\n")
             except Exception as e:
-                context.append(f"--- File: {path} (Error: {e}) ---\n")
+                flat_name = f"data/{os.path.basename(path)}"
+                context.append(f"--- File: {flat_name} (Error: {e}) ---\n")
         return "\n".join(context)
 
     def _detect_unit_request(self, question: str):
@@ -211,7 +220,7 @@ class PandasAgent:
             '        for kw in keywords_all:\n'
             '            mask &= s.str.contains(kw, case=False, na=False, regex=False)\n'
             '    return df.loc[mask]\n\n'
-            'files = ["data/processed_csv/AAA/file1.csv", "data/processed_csv/AAA/file2.csv"]\n'
+            'files = ["data/AAA_2015_BangCanDoiKeToan_consolidated.csv", "data/AAA_2015_BaoCaoKetQuaKinhDoanh_consolidated.csv"]\n'
             'answer = None\n'
             'for f in files:\n'
             '    df = pd.read_csv(f)\n'
@@ -270,10 +279,23 @@ class PandasAgent:
         old_stdout = sys.stdout
         new_stdout = io.StringIO()
         sys.stdout = new_stdout
+        orig_read_csv = pd.read_csv
+
+        def _custom_read_csv(filepath_or_buffer, *args, **kwargs):
+            if isinstance(filepath_or_buffer, str) and not os.path.exists(filepath_or_buffer):
+                bn = os.path.basename(filepath_or_buffer)
+                ticker = bn.split("_")[0] if "_" in bn else ""
+                cand = os.path.join("data", "processed_csv", ticker, bn)
+                if os.path.exists(cand):
+                    filepath_or_buffer = cand
+            return orig_read_csv(filepath_or_buffer, *args, **kwargs)
+
+        pd.read_csv = _custom_read_csv
         try:
             exec_globals = {"pd": pd, "os": os, "re": re}
             exec(code, exec_globals)
             sys.stdout = old_stdout
+            pd.read_csv = orig_read_csv
             result = new_stdout.getvalue().strip()
             if not result:
                 return None, "Output rỗng. Đảm bảo có print(kết_quả) ở cuối."
@@ -281,6 +303,7 @@ class PandasAgent:
             return last_line, None
         except Exception:
             sys.stdout = old_stdout
+            pd.read_csv = orig_read_csv
             return None, traceback.format_exc()
 
     def run_agent(self, question, csv_paths, max_retries=3):
