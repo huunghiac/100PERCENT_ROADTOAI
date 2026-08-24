@@ -156,7 +156,8 @@ class PandasAgent:
                 f'- If CSV unit is "Triệu VND"/"Trieu VND" and question asks "triệu đồng": no conversion\n'
                 f'- If CSV unit already matches question unit: no conversion needed\n'
                 f'- If Don_vi is blank/NaN, assume Gia_tri is raw VND\n'
-                f'- Round final numeric answer to 2 decimal places\n'
+                f'- If question asks for % (phần trăm): return raw value as-is, no VND conversion\n'
+                f'- Keep full precision in final answer (round to 6 decimal places at most)\n'
             )
         prompt = (
             'You are a Python/Pandas expert. Write ONLY Python code to answer the question.\n\n'
@@ -183,6 +184,8 @@ class PandasAgent:
             '    if u == "" or u == "nan":\n'
             '        u = "vnd"\n'
             '    t = str(target_unit).lower()\n'
+            '    if "%" in u or "%" in t:\n'
+            '        return value\n'
             '    is_vnd = "vnd" in u or "đồng" in u\n'
             '    is_trieu = "trieu" in u or "triệu" in u\n'
             '    is_ty = "ty" in u or "tỷ" in u\n'
@@ -220,7 +223,7 @@ class PandasAgent:
             '        if answer < 0:\n'
             '            answer = abs(answer)\n'
             '        break\n'
-            'print(round(answer, 2) if answer is not None else 0.0)\n```\n\n'
+            'print(round(answer, 6) if answer is not None else 0.0)\n```\n\n'
             f'NOW SOLVE THIS:\nQuestion: {question}\n\nAvailable data:\n{csv_context}\n'
         )
         if error_log:

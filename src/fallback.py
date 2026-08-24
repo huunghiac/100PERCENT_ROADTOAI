@@ -53,6 +53,33 @@ _PHRASES = [
     ("cam ket cho thue hoat dong", ["cam", "ket", "cho", "thue", "hoat", "dong"]),
     ("loi the thuong mai", ["loi", "the", "thuong", "mai"]),
     ("cho vay khach hang", ["cho", "vay", "khach", "hang"]),
+    # --- NEW PHRASES ---
+    ("gia von hang hoa", ["gia", "von", "hang", "hoa"]),
+    ("gia von hang ban", ["gia", "von", "hang", "ban"]),
+    ("gia von cung cap dich vu", ["gia", "von", "cung", "cap", "dich", "vu"]),
+    ("tien gui tai cac tctd khac", ["tien", "gui", "tctd", "khac"]),
+    ("tien gui tai tctd", ["tien", "gui", "tctd"]),
+    ("tien gui tai cac to chuc tin dung", ["tien", "gui", "to", "chuc", "tin", "dung"]),
+    ("du no cho vay", ["du", "no", "cho", "vay"]),
+    ("thuong mai dich vu", ["thuong", "mai", "dich", "vu"]),
+    ("vay va no thue tai chinh", ["vay", "no", "thue", "tai", "chinh"]),
+    ("vay va no", ["vay", "va", "no"]),
+    ("du phong rui ro cho vay khach hang", ["du", "phong", "rui", "ro", "cho", "vay", "khach", "hang"]),
+    ("du phong rui ro cho vay", ["du", "phong", "rui", "ro", "cho", "vay"]),
+    ("so du du phong", ["so", "du", "du", "phong"]),
+    ("chi phi thue hien hanh", ["chi", "phi", "thue", "hien", "hanh"]),
+    ("thue thu nhap doanh nghiep hien hanh", ["thue", "thu", "nhap", "hien", "hanh"]),
+    ("ty le so huu", ["ty", "le", "so", "huu"]),
+    ("von gop truc tiep", ["von", "gop", "truc", "tiep"]),
+    ("lai vay phai tra", ["lai", "vay", "phai", "tra"]),
+    ("cam ket giao dich hoi doai", ["cam", "ket", "giao", "dich", "hoi", "doai"]),
+    ("cam ket giao dich", ["cam", "ket", "giao", "dich"]),
+    ("luu chuyen tien thuan", ["luu", "chuyen", "tien", "thuan"]),
+    ("luu chuyen tien tu hoat dong kinh doanh", ["luu", "chuyen", "hoat", "dong", "kinh", "doanh"]),
+    ("nam hien hanh", ["nam", "hien", "hanh"]),
+    ("quy dau tu gia tri bao viet", ["quy", "dau", "tu", "gia", "tri", "bao", "viet"]),
+    ("dau tu vao cong ty con va bvif", ["dau", "tu", "cong", "ty", "con", "bvif"]),
+    ("bvif", ["bvif"]),
 ]
 
 
@@ -198,6 +225,30 @@ def _row_score(question: str, path: str, chi_tieu: str) -> float:
         score -= 10.0
     if "gia tri con lai" in q and "gia tri con lai" not in row and "con lai" not in row:
         score -= 8.0
+    # --- NEW GUARDS ---
+    if "gia von hang hoa" in q and "hang hoa" not in row:
+        score -= 10.0
+    if "du phong rui ro" in q and "du phong" not in row and "rui ro" not in row:
+        score -= 8.0
+    if "so du" in q and "du phong" in q:
+        # Prefer rows with "so du tai ngay 31" for balance-type questions
+        if "so du tai ngay 31" in row:
+            score += 5.0
+        elif "so du" in row:
+            score += 3.0
+    if "tien gui" in q and "tctd" in q and "tctd" not in row and "to chuc tin dung" not in row and "tien gui" not in row:
+        score -= 8.0
+    if "von gop" in q and "von gop" not in row:
+        score -= 8.0
+    if "lai vay" in q and "lai vay" not in row and "lai" not in row:
+        score -= 8.0
+    if "hoi doai" in q and "hoi doai" not in row:
+        score -= 10.0
+    if "vay va no" in q and "vay va no" not in row and "vay" not in row:
+        score -= 8.0
+    # Synonym: "Quỹ Đầu tư Giá trị Bảo Việt" = BVIF
+    if "gia tri bao viet" in q and "bvif" in row:
+        score += 15.0
     return score
 
 
@@ -213,7 +264,7 @@ def _make_query(csv_path: str, row_index: int, target_unit: str, answer: float) 
         "    unit = 'vnd'\n"
         f"target_unit = {target_unit!r}\n"
         f"answer = {float(answer)!r}\n"
-        "print(round(answer, 2))\n"
+        "print(answer)\n"
     )
 
 
@@ -243,7 +294,7 @@ def try_rule_based_answer(question: str, csv_paths: list, min_score: float = 9.0
             is_cashflow_question = "luu chuyen" in qnorm or "dong tien" in qnorm
             if answer < 0 and not is_cashflow_question and any(k in qnorm for k in ["chi phi", "lai", "thu nhap", "doanh thu", "loi nhuan"]):
                 answer = abs(answer)
-            candidate = FallbackResult(round(float(answer), 2), _make_query(path, idx, target_unit, answer), path, int(idx), score)
+            candidate = FallbackResult(float(answer), _make_query(path, idx, target_unit, answer), path, int(idx), score)
             if best is None or candidate.score > best.score:
                 best = candidate
     if best is not None and best.score >= min_score:

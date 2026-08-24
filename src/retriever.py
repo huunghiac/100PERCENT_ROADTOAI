@@ -169,6 +169,26 @@ class TableRetriever:
         if "vay" in qt or "cho" in qt:
             if "chovay" in p or "khachhang" in p:
                 bonus += 2.0
+        # Boost thuyết minh đầu tư công ty con / tỷ lệ sở hữu / quyền biểu quyết
+        if {"sở", "hữu"} <= qt or {"công", "con"} <= qt or "biểu" in qt:
+            if "thuyetminh" in p or "dautu" in p or "congtycon" in p:
+                bonus += 4.0
+        # Boost tiền gửi tại TCTD
+        if "tctd" in qt or ("tiền" in qt and "gửi" in qt):
+            if "tiengui" in p or "tctd" in p or "tuongduongtien" in p:
+                bonus += 3.0
+        # Boost cam kết ngoại bảng / giao dịch hối đoái
+        if "cam" in qt or "hối" in qt or "bảo" in qt:
+            if "camket" in p or "nghiavu" in p or "ngoaibang" in p or "congcu" in p:
+                bonus += 3.0
+        # Boost thuế hiện hành
+        if "thuế" in qt and ("hiện" in qt or "hành" in qt):
+            if "thue" in p or "thuethu" in p or "ketquahoatdong" in p or "baocaoketqua" in p:
+                bonus += 3.0
+        # Boost giá vốn
+        if "giá" in qt and "vốn" in qt:
+            if "giavon" in p:
+                bonus += 4.0
         return bonus
 
     def _bm25_rank(self, question: str, csv_paths: list, top_k: int) -> list:
