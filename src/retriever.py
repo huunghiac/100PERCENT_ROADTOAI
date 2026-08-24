@@ -135,16 +135,16 @@ class TableRetriever:
         return re.findall(r"[\wÀ-ỹ]+", text.lower(), flags=re.UNICODE)
 
     def _clean_query_tokens(self, question: str) -> list:
-        """Giữ token chỉ tiêu, bỏ ticker/year/company/unit/question filler đã được filter ở tầng 1."""
-        ticker, year = self.extract_entities(question)
+        """Giữ token chỉ tiêu, bỏ ALL tickers/years/company names/unit/question filler."""
+        _, _, all_tickers, all_years = self.extract_all_entities(question)
         q = question.lower()
-        if ticker:
-            q = re.sub(rf"\b{re.escape(ticker.lower())}\b", " ", q)
+        for tk in all_tickers:
+            q = re.sub(rf"\b{re.escape(tk.lower())}\b", " ", q)
             for name_key, mapped_ticker in self.name_to_ticker.items():
-                if mapped_ticker == ticker:
+                if mapped_ticker == tk:
                     q = q.replace(name_key, " ")
-        if year:
-            q = q.replace(year, " ")
+        for yr in all_years:
+            q = q.replace(yr, " ")
         tokens = [t for t in self._tokenize(q) if t not in self._QUESTION_STOPWORDS and len(t) > 1]
         return tokens or self._tokenize(question)
 
@@ -246,6 +246,16 @@ class TableRetriever:
         # TH1: Multi-company hoặc Multi-year -> Dynamic gather
         is_multi = len(tickers) > 1 or len(years) > 1
         if is_multi:
+            # Fix 4: default consolidated cho câu multi (so sánh nhóm = hợp nhất)
+            effective_report_type = report_type if report_type else "consolidated"
+
+            # Fix 3: câu hỏi cần nhiều loại báo cáo (tỷ số, hệ số, biên) → lấy 2 bảng/cặp
+            q_lower = question.lower()
+            _ratio_keywords = {"hệ số", "tỷ số", "biên lợi nhuận", "biên gộp",
+                               "thanh toán", "khả năng", "d/e", "roe", "roa"}
+            needs_multi_report = any(kw in q_lower for kw in _ratio_keywords)
+            per_pair_k = 2 if needs_multi_report else 1
+
             target_tickers = tickers if tickers else [None]
             target_years = years if years else [None]
             gathered_paths = []
@@ -263,20 +273,18 @@ class TableRetriever:
                         matching = glob.glob(f"{self.csv_dir}/*/*_{y}_*.csv")
 
                     matching = [f.replace("\\", "/") for f in matching]
-                    if report_type:
-                        filtered = [f for f in matching if report_type in f]
-                        if filtered:
-                            matching = filtered
+                    filtered = [f for f in matching if effective_report_type in f]
+                    if filtered:
+                        matching = filtered
 
-                    # Lấy top 1 bảng tốt nhất cho từng (ticker, year)
                     if matching:
-                        best = self._bm25_rank(question, matching, top_k=1)
+                        best = self._bm25_rank(question, matching, top_k=per_pair_k)
                         for p in best:
                             if p not in gathered_paths:
                                 gathered_paths.append(p)
 
             if gathered_paths:
-                max_k = top_k if top_k is not None else 10
+                max_k = top_k if top_k is not None else 20
                 return gathered_paths[:max_k]
 
         # TH2: Đơn ticker / đơn year (hoặc không nhận diện được)
