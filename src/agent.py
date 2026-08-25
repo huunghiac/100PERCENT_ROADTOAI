@@ -60,7 +60,7 @@ class PandasAgent:
             print(f"[Agent] Model loaded. Device map: {getattr(self.model, 'hf_device_map', 'single-gpu')}")
         else:
             self.model_name = model_name
-            self.api_url = f"{base_url}/api/generate"
+            self.api_url = f"{base_url}/api/chat"
             self.tokenizer = None
             self.model = None
 
@@ -213,76 +213,94 @@ class PandasAgent:
         return None
 
 
-    def _build_prompt(self, question, csv_paths, error_log=None):
+    _SYSTEM_PROMPT = """\
+Bạn là chuyên gia phân tích dữ liệu tài chính BCTC Việt Nam bằng Python Pandas.
+
+QUY TẮC BẮT BUỘC:
+- Trả lời bằng ĐÚNG MỘT code block ```python ... ``` duy nhất.
+- Các DataFrame df1, df2, ... ĐÃ ĐƯỢC NẠP SẴN. KHÔNG import thư viện. KHÔNG dùng pd.read_csv().
+- Tìm chỉ tiêu trong cột 'Chi_tieu' bằng .str.contains(r'...', case=False, na=False).
+- Lấy giá trị số từ cột 'Gia_tri': float(row['Gia_tri']).
+- Nếu bảng có nhiều cột số khác (ví dụ: tỷ lệ %, số lượng), dùng cột phù hợp với câu hỏi.
+- Kết thúc bằng print(answer) — answer là MỘT số float/int duy nhất.
+
+TUYỆT ĐỐI KHÔNG:
+- Viết "# Your code here" hoặc bất kỳ placeholder nào.
+- Lặp lại code block nhiều lần.
+- Viết text giải thích bên ngoài code block.
+- Để code block trống hoặc chỉ chứa comment."""
+
+    def _build_messages(self, question, csv_paths, error_log=None):
         preview = self.get_csv_preview(csv_paths, question)
         target_unit = self._detect_unit_request(question)
 
         error_context = ""
         if error_log:
             error_context = f"""
-## LỖI Ở LẦN THỬ TRƯỚC:
-{error_log}
-Hãy sửa lại code để khắc phục lỗi trên. Kiểm tra kỹ tên cột, chỉ tiêu tìm kiếm và cách tính toán.
+LỖI TỪ LẦN CHẠY TRƯỚC (cần sửa):
+```
+{error_log[:500]}
+```
+Viết lại code mới sửa lỗi trên. KHÔNG lặp lại code cũ.
 """
 
-        prompt = f"""Bạn là chuyên gia phân tích dữ liệu tài chính Báo cáo tài chính (BCTC) Việt Nam và lập trình Python Pandas.
-Nhiệm vụ: Viết code Python Pandas ngắn gọn để tính toán đáp án chính xác cho câu hỏi tài chính.
-
-## CÁC BẢNG DỮ LIỆU ĐÃ ĐƯỢC LOAD SẴN VÀO CÁC BIẾN (DataFrames):
+        unit_note = target_unit if target_unit else "theo đơn vị gốc trong bảng"
+        user_content = f"""## BẢNG DỮ LIỆU (đã load sẵn):
 {preview}
 
-## YÊU CẦU BẮT BUỘC:
-1. Các biến DataFrame `df1`, `df2`, ... đã được nạp sẵn tương ứng với các bảng trên. KHÔNG cần import lại thư viện, KHÔNG cần dùng pd.read_csv.
-2. Tìm chỉ tiêu trong cột 'Chi_tieu' bằng cách so khớp chuỗi không phân biệt hoa thường, ví dụ:
-   `df1[df1['Chi_tieu'].str.contains(r'doanh thu thuần', case=False, na=False)]`
-3. Lấy giá trị số từ cột 'Gia_tri'. Đảm bảo ép kiểu float: `float(row['Gia_tri'])`.
-4. Quy đổi đơn vị theo đúng yêu cầu trong câu hỏi ({target_unit if target_unit else 'theo đơn vị chuẩn'}):
-   - Đơn vị gốc của bảng thường là VND (đồng). Nếu câu hỏi yêu cầu "triệu đồng" -> chia 1_000_000.
-   - Nếu câu hỏi yêu cầu "tỷ đồng" -> chia 1_000_000_000.
-   - Nếu câu hỏi yêu cầu "nghìn tỷ đồng" -> chia 1_000_000_000_000.
-   - Nếu câu hỏi về tỷ lệ %, biên lợi nhuận -> tính tỷ số rồi nhân 100.
-5. Đối với câu hỏi tính toán đa bước (Tổng nợ = Nợ ngắn hạn + Nợ dài hạn; Biên LN = LNST / DTT * 100; Tăng trưởng = (Năm sau - Năm trước) / Năm trước * 100):
-   Trích xuất từng biến thành phần và thực hiện phép tính tương ứng.
-6. Kết thúc bằng: `print(answer)` hoặc `answer = ...` (giá trị là số float/int duy nhất).
+## HƯỚNG DẪN QUY ĐỔI ĐƠN VỊ:
+- Đơn vị gốc thường là VND (đồng).
+- "triệu đồng" → chia 1_000_000.  "tỷ đồng" → chia 1_000_000_000.
+- "nghìn tỷ đồng" → chia 1_000_000_000_000.
+- Tỷ lệ %, biên lợi nhuận → tính tỷ số rồi nhân 100.
+- Câu hỏi này yêu cầu: {unit_note}.
 
-## VÍ DỤ MẪU:
+## VÍ DỤ:
 
-Ví dụ 1 (Tra cứu đơn):
+Ví dụ 1 — Tra cứu đơn giản:
 ```python
 m = df1[df1['Chi_tieu'].str.contains(r'doanh thu thuần', case=False, na=False)]
 val = float(m.iloc[0]['Gia_tri'])
-answer = val / 1_000_000_000  # tỷ đồng
+answer = val / 1_000_000_000
 print(answer)
 ```
 
-Ví dụ 2 (Cộng dồn 2 chỉ tiêu):
+Ví dụ 2 — Cộng dồn 2 chỉ tiêu:
 ```python
-m_ngan = df1[df1['Chi_tieu'].str.contains(r'nợ ngắn hạn', case=False, na=False)]
-m_dai = df1[df1['Chi_tieu'].str.contains(r'nợ dài hạn', case=False, na=False)]
-val_ngan = float(m_ngan.iloc[0]['Gia_tri'])
-val_dai = float(m_dai.iloc[0]['Gia_tri'])
-answer = (val_ngan + val_dai) / 1_000_000_000  # tỷ đồng
+m1 = df1[df1['Chi_tieu'].str.contains(r'nợ ngắn hạn', case=False, na=False)]
+m2 = df1[df1['Chi_tieu'].str.contains(r'nợ dài hạn', case=False, na=False)]
+answer = (float(m1.iloc[0]['Gia_tri']) + float(m2.iloc[0]['Gia_tri'])) / 1_000_000_000
 print(answer)
 ```
 
-Ví dụ 3 (Tính tỷ lệ %):
+Ví dụ 3 — Tính tỷ lệ %:
 ```python
 m_lnst = df1[df1['Chi_tieu'].str.contains(r'lợi nhuận sau thuế', case=False, na=False)]
 m_dtt = df1[df1['Chi_tieu'].str.contains(r'doanh thu thuần', case=False, na=False)]
-lnst = float(m_lnst.iloc[0]['Gia_tri'])
-dtt = float(m_dtt.iloc[0]['Gia_tri'])
-answer = (lnst / dtt) * 100
+answer = float(m_lnst.iloc[0]['Gia_tri']) / float(m_dtt.iloc[0]['Gia_tri']) * 100
 print(answer)
+```
+
+Ví dụ 4 — Tìm theo tên công ty con/liên kết:
+```python
+m = df1[df1['Chi_tieu'].str.contains(r'Tên công ty', case=False, na=False)]
+val = float(m.iloc[0]['Gia_tri'])
+print(val)
 ```
 {error_context}
 ## CÂU HỎI:
 {question}
+"""
+        return [
+            {"role": "system", "content": self._SYSTEM_PROMPT},
+            {"role": "user", "content": user_content},
+        ]
 
-Hãy viết code Python Pandas bên trong khối ```python ... ```:"""
-        return prompt
-
-    def _generate_transformers(self, prompt):
-        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=6144)
+    def _generate_transformers(self, messages):
+        text = self.tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=6144)
         first_device = next(iter(self.model.parameters())).device
         inputs = {k: v.to(first_device) for k, v in inputs.items()}
         with torch.no_grad():
@@ -294,25 +312,25 @@ Hãy viết code Python Pandas bên trong khối ```python ... ```:"""
         new_tokens = outputs[0][inputs["input_ids"].shape[1]:]
         return self.tokenizer.decode(new_tokens, skip_special_tokens=True)
 
-    def _generate_ollama(self, prompt):
+    def _generate_ollama(self, messages):
         if _requests is None:
             raise ImportError("requests not installed for ollama backend")
         payload = {
-            "model": self.model_name, "prompt": prompt, "stream": False,
+            "model": self.model_name, "messages": messages, "stream": False,
             "options": {"num_ctx": 4096, "num_predict": self.max_new_tokens},
         }
         res = _requests.post(self.api_url, json=payload, timeout=None)
         res.raise_for_status()
-        return res.json().get("response", "")
+        data = res.json()
+        return data.get("message", {}).get("content", data.get("response", ""))
 
     def generate_code(self, question, csv_paths, error_log=None):
-        prompt = self._build_prompt(question, csv_paths, error_log)
+        messages = self._build_messages(question, csv_paths, error_log)
         try:
             if self.backend == "transformers":
-                raw_text = self._generate_transformers(prompt)
+                raw_text = self._generate_transformers(messages)
             else:
-                raw_text = self._generate_ollama(prompt)
-            # Debug: in raw output của model (cắt 500 ký tự đầu)
+                raw_text = self._generate_ollama(messages)
             print(f"[Agent RAW] {raw_text[:500]}")
             code = self.clean_response(raw_text)
             if "GENERATION_FAILED" in code:
