@@ -36,11 +36,17 @@ _PHRASES = [
     ("thue tndn con phai nop", ["thue", "tndn", "con", "phai", "nop"]),
     ("thue tndn phai nop", ["thue", "tndn", "phai", "nop"]),
     ("vay ngan han", ["vay", "ngan", "han"]),
+    ("vay dai han", ["vay", "dai", "han"]),
+    ("no ngan han", ["no", "ngan", "han"]),
+    ("no dai han", ["no", "dai", "han"]),
     ("luu chuyen tien thuan tu hoat dong kinh doanh", ["luu", "chuyen", "tien", "thuan", "hoat", "dong", "kinh", "doanh"]),
+    ("luu chuyen tien thuan", ["luu", "chuyen", "tien", "thuan"]),
     ("nguyen gia", ["nguyen", "gia"]),
     ("chi phi du phong rui ro tin dung", ["chi", "phi", "du", "phong", "rui", "ro", "tin", "dung"]),
     ("chi phi du phong", ["chi", "phi", "du", "phong"]),
     ("loi nhuan sau thue", ["loi", "nhuan", "sau", "thue"]),
+    ("loi nhuan gop", ["loi", "nhuan", "gop"]),
+    ("doanh thu thuan", ["doanh", "thu", "thuan"]),
     ("tong quy luong", ["tong", "quy", "luong"]),
     ("chi phi dich vu mua ngoai", ["chi", "phi", "dich", "vu", "mua", "ngoai"]),
     ("phai thu ngan han khac", ["phai", "thu", "ngan", "han", "khac"]),
@@ -50,9 +56,15 @@ _PHRASES = [
     ("ty le quyen bieu quyet", ["ty", "le", "quyen", "bieu", "quyet"]),
     ("ty le bieu quyet", ["ty", "le", "bieu", "quyet"]),
     ("thu lao", ["thu", "lao"]),
+    ("thanh vien hdqt", ["thanh", "vien", "hdqt"]),
     ("cam ket cho thue hoat dong", ["cam", "ket", "cho", "thue", "hoat", "dong"]),
     ("loi the thuong mai", ["loi", "the", "thuong", "mai"]),
     ("cho vay khach hang", ["cho", "vay", "khach", "hang"]),
+    ("chi phi khac", ["chi", "phi", "khac"]),
+    ("thu nhap khac", ["thu", "nhap", "khac"]),
+    ("chung khoan no", ["chung", "khoan", "no"]),
+    ("bat dong san dau tu", ["bat", "dong", "san", "dau", "tu"]),
+    ("gia tri con lai", ["gia", "tri", "con", "lai"]),
     # --- NEW PHRASES ---
     ("gia von hang hoa", ["gia", "von", "hang", "hoa"]),
     ("gia von hang ban", ["gia", "von", "hang", "ban"]),
@@ -74,7 +86,6 @@ _PHRASES = [
     ("lai vay phai tra", ["lai", "vay", "phai", "tra"]),
     ("cam ket giao dich hoi doai", ["cam", "ket", "giao", "dich", "hoi", "doai"]),
     ("cam ket giao dich", ["cam", "ket", "giao", "dich"]),
-    ("luu chuyen tien thuan", ["luu", "chuyen", "tien", "thuan"]),
     ("luu chuyen tien tu hoat dong kinh doanh", ["luu", "chuyen", "hoat", "dong", "kinh", "doanh"]),
     ("nam hien hanh", ["nam", "hien", "hanh"]),
     ("quy dau tu gia tri bao viet", ["quy", "dau", "tu", "gia", "tri", "bao", "viet"]),
@@ -247,30 +258,174 @@ def _row_score(question: str, path: str, chi_tieu: str) -> float:
     if "vay va no" in q and "vay va no" not in row and "vay" not in row:
         score -= 8.0
     # Synonym: "Quỹ Đầu tư Giá trị Bảo Việt" = BVIF
-    if "gia tri bao viet" in q and "bvif" in row:
-        score += 15.0
+    if ("lai tien gui" in q or "tien gui" in q) and "lai tien gui" in row:
+        score += 8.0
     return score
 
 
-def _make_query(csv_path: str, row_index: int, target_unit: str, answer: float) -> str:
-    flat_path = f"data/{os.path.basename(csv_path)}"
-    return (
-        "import pandas as pd\n"
-        f"df = pd.read_csv({flat_path!r})\n"
-        f"row = df.iloc[{int(row_index)}]\n"
-        "value = float(row['Gia_tri'])\n"
-        "unit = '' if pd.isna(row.get('Don_vi', '')) else str(row.get('Don_vi', '')).lower().strip()\n"
-        "if unit == '' or unit == 'nan':\n"
-        "    unit = 'vnd'\n"
-        f"target_unit = {target_unit!r}\n"
-        f"answer = {float(answer)!r}\n"
-        "print(answer)\n"
-    )
+def _make_query(var_name: str, row_index: int, unit_factor: float, is_negative_abs: bool) -> str:
+    """
+    Sinh biểu thức Pandas chuẩn trên biến DataFrame (df1, df2, ...) từ evidence.
+    Ví dụ: float(abs(df1.iloc[5]['Gia_tri']) / 1000000)
+    """
+    expr = f"float({var_name}.iloc[{int(row_index)}]['Gia_tri'])"
+    if is_negative_abs:
+        expr = f"abs({expr})"
+    if unit_factor != 1.0:
+        if unit_factor > 1.0:
+            if unit_factor == int(unit_factor):
+                expr = f"{expr} * {int(unit_factor)}"
+            else:
+                expr = f"{expr} * {unit_factor}"
+        else:
+            inv = int(round(1.0 / unit_factor))
+            expr = f"{expr} / {inv}"
+    return expr
 
 
-def try_rule_based_answer(question: str, csv_paths: list, min_score: float = 9.0) -> Optional[FallbackResult]:
+def _get_unit_factor(value: float, source_unit: str, target_unit: str) -> float:
+    """Tính toán hệ số nhân để quy đổi từ source_unit sang target_unit."""
+    u = "" if pd.isna(source_unit) else normalize_text(source_unit)
+    t = normalize_text(target_unit)
+    if u == "" or u == "nan":
+        if abs(value) >= 1_000_000_000:
+            u = "vnd"
+        else:
+            u = t or "vnd"
+    if "%" in u or "%" in t:
+        return 1.0
+    is_vnd = "vnd" in u or "dong" in u
+    is_trieu = "trieu" in u
+    is_ty = "ty" in u
+
+    if "nghin ty" in t:
+        if is_trieu:
+            return 1.0 / 1_000_000
+        if is_vnd and not is_trieu and not is_ty:
+            return 1.0 / 1_000_000_000_000
+        return 1.0
+    if "ty" in t:
+        if is_trieu:
+            return 1.0 / 1_000
+        if is_vnd and not is_trieu and not is_ty:
+            return 1.0 / 1_000_000_000
+        return 1.0
+    if "trieu" in t:
+        if is_ty:
+            return 1000.0
+        if is_vnd and not is_trieu and not is_ty:
+            return 1.0 / 1_000_000
+        return 1.0
+    if "nghin" in t and "ty" not in t:
+        if is_ty:
+            return 1_000_000.0
+        if is_trieu:
+            return 1_000.0
+        if is_vnd and not is_trieu and not is_ty:
+            return 1.0 / 1_000
+        return 1.0
+    return 1.0
+
+
+def try_multistep_rule_based_answer(question: str, csv_paths: list) -> Optional[FallbackResult]:
+    """
+    Nhận diện và giải quyết các câu hỏi tính toán đa bước phổ biến:
+    1. Tổng nợ = Nợ ngắn hạn + Nợ dài hạn
+    2. Biên lợi nhuận sau thuế = Lợi nhuận sau thuế / Doanh thu thuần * 100
+    3. Biên lợi nhuận gộp = Lợi nhuận gộp / Doanh thu thuần * 100
+    """
+    qnorm = normalize_text(question)
+    target_unit = detect_target_unit(question)
+    path_to_var = {p: f"df{i+1}" for i, p in enumerate(csv_paths)}
+
+    candidates = _candidate_paths(question, csv_paths)
+    if not candidates:
+        return None
+
+    # TH1: Tổng nợ từ nợ ngắn hạn và nợ dài hạn
+    if ("tong no" in qnorm or "no phai tra" in qnorm) and "ngan han" in qnorm and "dai han" in qnorm:
+        for path in candidates:
+            real_path = path if os.path.exists(path) else path.replace("data/", "", 1)
+            if not os.path.exists(real_path):
+                continue
+            try:
+                df = pd.read_csv(real_path)
+            except Exception:
+                continue
+            if "Chi_tieu" not in df.columns or "Gia_tri" not in df.columns:
+                continue
+            
+            s = df["Chi_tieu"].astype(str).str.lower()
+            m_ngan = df[s.str.contains(r"nợ ngắn hạn|vay ngắn hạn", regex=True, na=False)]
+            m_dai = df[s.str.contains(r"nợ dài hạn|vay dài hạn", regex=True, na=False)]
+            
+            if not m_ngan.empty and not m_dai.empty:
+                idx1 = int(m_ngan.index[0])
+                idx2 = int(m_dai.index[0])
+                v1 = float(m_ngan.iloc[0]["Gia_tri"])
+                v2 = float(m_dai.iloc[0]["Gia_tri"])
+                u1 = m_ngan.iloc[0].get("Don_vi", "")
+                factor = _get_unit_factor(v1 + v2, u1, target_unit)
+                ans = (v1 + v2) * factor
+                var = path_to_var.get(path, "df1")
+                
+                # Biểu thức tính tổng
+                if factor == 1.0:
+                    query = f"float({var}.iloc[{idx1}]['Gia_tri']) + float({var}.iloc[{idx2}]['Gia_tri'])"
+                elif factor > 1.0:
+                    query = f"(float({var}.iloc[{idx1}]['Gia_tri']) + float({var}.iloc[{idx2}]['Gia_tri'])) * {int(factor) if factor==int(factor) else factor}"
+                else:
+                    inv = int(round(1.0 / factor))
+                    query = f"(float({var}.iloc[{idx1}]['Gia_tri']) + float({var}.iloc[{idx2}]['Gia_tri'])) / {inv}"
+                
+                return FallbackResult(float(ans), query, path, idx1, 99.0)
+
+    # TH2: Biên lợi nhuận sau thuế / Biên lợi nhuận gộp
+    if ("bien loi nhuan" in qnorm or "bien ln" in qnorm or "ty le" in qnorm) and ("sau thue" in qnorm or "gop" in qnorm):
+        for path in candidates:
+            real_path = path if os.path.exists(path) else path.replace("data/", "", 1)
+            if not os.path.exists(real_path):
+                continue
+            try:
+                df = pd.read_csv(real_path)
+            except Exception:
+                continue
+            if "Chi_tieu" not in df.columns or "Gia_tri" not in df.columns:
+                continue
+            
+            s = df["Chi_tieu"].astype(str).str.lower()
+            is_gop = "gop" in qnorm
+            pattern_ln = r"lợi nhuận gộp" if is_gop else r"lợi nhuận sau thuế"
+            m_ln = df[s.str.contains(pattern_ln, regex=True, na=False)]
+            m_dtt = df[s.str.contains(r"doanh thu thuần|doanh thu bán hàng", regex=True, na=False)]
+            
+            if not m_ln.empty and not m_dtt.empty:
+                idx1 = int(m_ln.index[0])
+                idx2 = int(m_dtt.index[0])
+                v1 = float(m_ln.iloc[0]["Gia_tri"])
+                v2 = float(m_dtt.iloc[0]["Gia_tri"])
+                if v2 != 0:
+                    ans = (v1 / v2) * 100.0
+                    var = path_to_var.get(path, "df1")
+                    query = f"(float({var}.iloc[{idx1}]['Gia_tri']) / float({var}.iloc[{idx2}]['Gia_tri'])) * 100"
+                    return FallbackResult(float(ans), query, path, idx1, 99.0)
+
+    return None
+
+
+def try_rule_based_answer(question: str, csv_paths: list, min_score: float = 4.0) -> Optional[FallbackResult]:
+    # 1. Thử giải câu hỏi đa bước trước
+    multistep_res = try_multistep_rule_based_answer(question, csv_paths)
+    if multistep_res is not None:
+        return multistep_res
+
+    # 2. Giải câu hỏi đơn
     target_unit = detect_target_unit(question)
     best = None
+    
+    # Map từng path sang tên biến df1, df2,...
+    path_to_var = {p: f"df{i+1}" for i, p in enumerate(csv_paths)}
+
     for path in _candidate_paths(question, csv_paths):
         real_path = path if os.path.exists(path) else path.replace("data/", "", 1)
         if not os.path.exists(real_path):
@@ -281,6 +436,9 @@ def try_rule_based_answer(question: str, csv_paths: list, min_score: float = 9.0
             continue
         if "Chi_tieu" not in df.columns or "Gia_tri" not in df.columns:
             continue
+            
+        var_name = path_to_var.get(path, "df1")
+
         for idx, row in df.iterrows():
             try:
                 value = float(row.get("Gia_tri"))
@@ -289,14 +447,23 @@ def try_rule_based_answer(question: str, csv_paths: list, min_score: float = 9.0
             score = _row_score(question, path, row.get("Chi_tieu", ""))
             if score <= 0:
                 continue
-            answer = convert_unit(value, row.get("Don_vi", ""), target_unit)
+                
+            unit_factor = _get_unit_factor(value, row.get("Don_vi", ""), target_unit)
+            raw_answer = value * unit_factor
             qnorm = normalize_text(question)
             is_cashflow_question = "luu chuyen" in qnorm or "dong tien" in qnorm
-            if answer < 0 and not is_cashflow_question and any(k in qnorm for k in ["chi phi", "lai", "thu nhap", "doanh thu", "loi nhuan"]):
-                answer = abs(answer)
-            candidate = FallbackResult(float(answer), _make_query(path, idx, target_unit, answer), path, int(idx), score)
+            is_neg_abs = False
+            if raw_answer < 0 and not is_cashflow_question and any(k in qnorm for k in ["chi phi", "lai", "thu nhap", "doanh thu", "loi nhuan"]):
+                answer = abs(raw_answer)
+                is_neg_abs = True
+            else:
+                answer = raw_answer
+
+            query = _make_query(var_name, idx, unit_factor, is_neg_abs)
+            candidate = FallbackResult(float(answer), query, path, int(idx), score)
             if best is None or candidate.score > best.score:
                 best = candidate
+                
     if best is not None and best.score >= min_score:
         return best
     return None

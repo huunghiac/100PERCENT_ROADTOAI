@@ -8,7 +8,8 @@ from rank_bm25 import BM25Okapi
 
 class TableRetriever:
     def __init__(self, csv_dir="data/processed_csv",
-                 manifest_path="data/processed_csv/_manifest.jsonl"):
+                 manifest_path="data/processed_csv/_manifest.jsonl",
+                 line_map_path="data/table_line_map.json"):
         """
         Tìm bảng CSV phù hợp cho câu hỏi bằng 3 tầng:
           Tầng 0 – Entity extraction: ticker (ngoặc đơn > bare match > company name) + year.
@@ -17,9 +18,11 @@ class TableRetriever:
         """
         self.csv_dir = csv_dir
         self.manifest = {}
+        self.line_map = {}
         self.name_to_ticker = {}
         self.ticker_set = set()
         self._load_manifest(manifest_path)
+        self._load_line_map(line_map_path)
         self._build_name_index()
 
     def _load_manifest(self, path: str):
@@ -36,6 +39,22 @@ class TableRetriever:
                     self.manifest[csv_path] = entry
                 except json.JSONDecodeError:
                     continue
+
+    def _load_line_map(self, path: str):
+        if not os.path.exists(path):
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                self.line_map = json.load(f)
+        except Exception:
+            self.line_map = {}
+
+    def get_source_line_number(self, doc_id: str, table_index: int) -> int:
+        """Lấy số dòng 1-based bắt đầu bảng trong file txt OCR."""
+        key = f"{doc_id}|{table_index}"
+        if key in self.line_map:
+            return self.line_map[key]
+        return table_index
 
     # ---- Company-name → ticker index (built once) ----
     def _normalize_name(self, name: str) -> str:

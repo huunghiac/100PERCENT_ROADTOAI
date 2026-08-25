@@ -96,14 +96,20 @@ class PandasAgent:
         return [t for t in tokens if len(t) > 1 and t not in self._PREVIEW_STOPWORDS]
 
     def get_csv_preview(self, csv_paths: list, question: str = None) -> str:
-        """Prompt gọn: head(8) + tối đa 3 dòng liên quan để tránh context truncation."""
+        """
+        Trích xuất context thông minh:
+        - Metadata & cột
+        - Preview head(5)
+        - Toàn bộ các dòng match với từng từ khóa chỉ tiêu trong câu hỏi
+        """
         context = []
-        noisy_keywords = {"chi", "phí", "tiền", "số", "dư", "khác", "khoản", "hoạt", "động"}
+        noisy_keywords = {"chi", "phí", "tiền", "số", "dư", "khác", "khoản", "hoạt", "động", "tính", "hỏi", "cho", "biết"}
         keywords = [k for k in self._question_keywords(question or "") if k not in noisy_keywords]
-        for path in csv_paths:
+        
+        for i, path in enumerate(csv_paths):
+            var_name = f"df{i+1}"
             real_path = path if os.path.exists(path) else path.replace("data/", "", 1)
             if not os.path.exists(real_path):
-                # Search fallback in data/processed_csv
                 bn = os.path.basename(path)
                 ticker = bn.split("_")[0] if "_" in bn else ""
                 cand = os.path.join("data", "processed_csv", ticker, bn)
@@ -114,24 +120,31 @@ class PandasAgent:
             try:
                 df = pd.read_csv(real_path)
                 flat_name = f"data/{os.path.basename(path)}"
-                n = min(8, len(df))
-                preview = (
-                    f"--- File: {flat_name} ---\n"
-                    f"Columns: {list(df.columns)}\n"
-                    f"Data (first {n} rows):\n{df.head(n).to_string()}"
-                )
-                if keywords and "Chi_tieu" in df.columns:
+                preview = [
+                    f"--- Table variable: {var_name} (File: {flat_name}) ---",
+                    f"Columns: {list(df.columns)}",
+                    f"Total rows: {len(df)}",
+                    f"Sample rows:\n{df.head(4).to_string()}"
+                ]
+                
+                if "Chi_tieu" in df.columns:
                     s = df["Chi_tieu"].astype(str).str.lower()
-                    mask = pd.Series(False, index=df.index)
-                    for kw in keywords[:5]:
-                        mask |= s.str.contains(kw, case=False, na=False, regex=False)
-                    rel = df.loc[mask].head(3)
-                    if not rel.empty:
-                        preview += f"\nRelevant rows:\n{rel.to_string()}"
-                context.append(preview + "\n")
+                    matched_indices = set()
+                    for kw in keywords:
+                        mask = s.str.contains(kw, case=False, na=False, regex=False)
+                        for idx in df.index[mask]:
+                            matched_indices.add(idx)
+                            
+                    if matched_indices:
+                        sorted_indices = sorted(list(matched_indices))[:10]
+                        rel = df.loc[sorted_indices]
+                        preview.append(f"Relevant indicator rows in {var_name}:\n{rel.to_string()}")
+                        
+                context.append("\n".join(preview) + "\n")
             except Exception as e:
                 flat_name = f"data/{os.path.basename(path)}"
-                context.append(f"--- File: {flat_name} (Error: {e}) ---\n")
+                context.append(f"--- Table variable: {var_name} (File: {flat_name}, Error: {e}) ---\n")
+                
         return "\n".join(context)
 
     def _detect_unit_request(self, question: str):
@@ -150,93 +163,71 @@ class PandasAgent:
 
 
     def _build_prompt(self, question, csv_paths, error_log=None):
-        csv_context = self.get_csv_preview(csv_paths, question)
-        unit_request = self._detect_unit_request(question)
-        unit_note = ""
-        if unit_request:
-            unit_note = (
-                f"\nUNIT CONVERSION (CRITICAL):\n"
-                f"- The question asks for the answer in: {unit_request}\n"
-                f'- Check Don_vi column for CSV unit (VND, Triệu VND, Nghìn VND, etc.)\n'
-                f'- If CSV unit is VND and question asks "triệu đồng": divide by 1,000,000\n'
-                f'- If CSV unit is VND and question asks "tỷ đồng": divide by 1,000,000,000\n'
-                f'- If CSV unit is VND and question asks "nghìn tỷ đồng": divide by 1,000,000,000,000\n'
-                f'- If CSV unit is "Triệu VND"/"Trieu VND" and question asks "tỷ đồng": divide by 1,000\n'
-                f'- If CSV unit is "Triệu VND"/"Trieu VND" and question asks "triệu đồng": no conversion\n'
-                f'- If CSV unit already matches question unit: no conversion needed\n'
-                f'- If Don_vi is blank/NaN, assume Gia_tri is raw VND\n'
-                f'- If question asks for % (phần trăm): return raw value as-is, no VND conversion\n'
-                f'- Keep full precision in final answer (round to 6 decimal places at most)\n'
-            )
-        prompt = (
-            'You are a Python/Pandas expert. Write ONLY Python code to answer the question.\n\n'
-            'RULES:\n'
-            '- Read CSV: pd.read_csv("exact_file_path")\n'
-            '- CSV has columns: Chi_tieu (indicator name in Vietnamese WITH DIACRITICS), Gia_tri (numeric value), Don_vi (unit)\n'
-            '- Search ALL provided CSV files. Do not stop at first file unless a strong match is found.\n'
-            '- NEVER use the whole question inside str.contains(). Use only short indicator keywords from Chi_tieu.\n'
-            '- NEVER include ticker, year, company name, "công ty mẹ", "hợp nhất", unit words, or question words in Chi_tieu regex.\n'
-            '- Prefer flexible matching: multiple keywords or regex with .* between words. Example: "Lợi nhuận.*sau thuế" matches "LỢI NHUẬN KẾ TOÁN SAU THUẾ TNDN".\n'
-            '- Bad regex: r"Vốn cổ phần.*VGT.*2024". Good regex: r"Vốn cổ phần.*phát hành".\n'
-            '- For income/revenue/profit/interest amounts (lãi, thu nhập, doanh thu, lợi nhuận), if matched cash-flow adjustment value is negative, use abs(value), unless the question asks cash flow/payment/loss.\n'
-            '- Check match.empty before reading values[0]. If no match found in all files, print(0.0).\n'
-            '- Do not write labels such as NEW CODE or explanations outside the code block.\n'
-            '- The final output MUST be exactly one number. No text, no units.\n'
-            '- Output code inside ```python ... ``` block.\n'
-            f'{unit_note}\n'
-            'USE THIS TEMPLATE STYLE:\n'
-            '```python\nimport pandas as pd\nimport re\n\n'
-            f'target_unit = "{unit_request or ""}"  # unit asked by the question; keep empty if none\n\n'
-            'def convert_unit(value, source_unit, target_unit):\n'
-            '    value = float(value)\n'
-            '    u = "" if pd.isna(source_unit) else str(source_unit).lower().strip()\n'
-            '    if u == "" or u == "nan":\n'
-            '        u = "vnd"\n'
-            '    t = str(target_unit).lower()\n'
-            '    if "%" in u or "%" in t:\n'
-            '        return value\n'
-            '    is_vnd = "vnd" in u or "đồng" in u\n'
-            '    is_trieu = "trieu" in u or "triệu" in u\n'
-            '    is_ty = "ty" in u or "tỷ" in u\n'
-            '    if "nghìn tỷ" in t:\n'
-            '        if is_trieu: return value / 1_000_000\n'
-            '        if is_vnd and not is_trieu and not is_ty: return value / 1_000_000_000_000\n'
-            '        return value\n'
-            '    if "tỷ" in t:\n'
-            '        if is_trieu: return value / 1000\n'
-            '        if is_vnd and not is_trieu and not is_ty: return value / 1_000_000_000\n'
-            '        return value\n'
-            '    if "triệu" in t:\n'
-            '        if is_ty: return value * 1000\n'
-            '        if is_vnd and not is_trieu and not is_ty: return value / 1_000_000\n'
-            '        return value\n'
-            '    return value\n\n'
-            'def find_rows(df, regex=None, keywords_all=None):\n'
-            '    s = df["Chi_tieu"].astype(str)\n'
-            '    mask = pd.Series(True, index=df.index)\n'
-            '    if regex:\n'
-            '        mask &= s.str.contains(regex, case=False, na=False, regex=True)\n'
-            '    if keywords_all:\n'
-            '        for kw in keywords_all:\n'
-            '            mask &= s.str.contains(kw, case=False, na=False, regex=False)\n'
-            '    return df.loc[mask]\n\n'
-            'files = ["data/AAA_2015_BangCanDoiKeToan_consolidated.csv", "data/AAA_2015_BaoCaoKetQuaKinhDoanh_consolidated.csv"]\n'
-            'answer = None\n'
-            'for f in files:\n'
-            '    df = pd.read_csv(f)\n'
-            '    m = find_rows(df, regex=r"Lợi nhuận.*sau thuế")\n'
-            '    if not m.empty:\n'
-            '        row = m.iloc[0]\n'
-            '        answer = convert_unit(row["Gia_tri"], row.get("Don_vi", ""), target_unit)\n'
-            '        # If question asks income/profit/revenue/interest and cash-flow row is negative, output positive amount.\n'
-            '        if answer < 0:\n'
-            '            answer = abs(answer)\n'
-            '        break\n'
-            'print(round(answer, 6) if answer is not None else 0.0)\n```\n\n'
-            f'NOW SOLVE THIS:\nQuestion: {question}\n\nAvailable data:\n{csv_context}\n'
-        )
+        preview = self.get_csv_preview(csv_paths, question)
+        target_unit = self._detect_unit_request(question)
+
+        error_context = ""
         if error_log:
-            prompt += f"\nPREVIOUS ERROR (fix this):\n{error_log}\n"
+            error_context = f"""
+## LỖI Ở LẦN THỬ TRƯỚC:
+{error_log}
+Hãy sửa lại code để khắc phục lỗi trên. Kiểm tra kỹ tên cột, chỉ tiêu tìm kiếm và cách tính toán.
+"""
+
+        prompt = f"""Bạn là chuyên gia phân tích dữ liệu tài chính Báo cáo tài chính (BCTC) Việt Nam và lập trình Python Pandas.
+Nhiệm vụ: Viết code Python Pandas ngắn gọn để tính toán đáp án chính xác cho câu hỏi tài chính.
+
+## CÁC BẢNG DỮ LIỆU ĐÃ ĐƯỢC LOAD SẴN VÀO CÁC BIẾN (DataFrames):
+{preview}
+
+## YÊU CẦU BẮT BUỘC:
+1. Các biến DataFrame `df1`, `df2`, ... đã được nạp sẵn tương ứng với các bảng trên. KHÔNG cần import lại thư viện, KHÔNG cần dùng pd.read_csv.
+2. Tìm chỉ tiêu trong cột 'Chi_tieu' bằng cách so khớp chuỗi không phân biệt hoa thường, ví dụ:
+   `df1[df1['Chi_tieu'].str.contains(r'doanh thu thuần', case=False, na=False)]`
+3. Lấy giá trị số từ cột 'Gia_tri'. Đảm bảo ép kiểu float: `float(row['Gia_tri'])`.
+4. Quy đổi đơn vị theo đúng yêu cầu trong câu hỏi ({target_unit if target_unit else 'theo đơn vị chuẩn'}):
+   - Đơn vị gốc của bảng thường là VND (đồng). Nếu câu hỏi yêu cầu "triệu đồng" -> chia 1_000_000.
+   - Nếu câu hỏi yêu cầu "tỷ đồng" -> chia 1_000_000_000.
+   - Nếu câu hỏi yêu cầu "nghìn tỷ đồng" -> chia 1_000_000_000_000.
+   - Nếu câu hỏi về tỷ lệ %, biên lợi nhuận -> tính tỷ số rồi nhân 100.
+5. Đối với câu hỏi tính toán đa bước (Tổng nợ = Nợ ngắn hạn + Nợ dài hạn; Biên LN = LNST / DTT * 100; Tăng trưởng = (Năm sau - Năm trước) / Năm trước * 100):
+   Trích xuất từng biến thành phần và thực hiện phép tính tương ứng.
+6. Kết thúc bằng: `print(answer)` hoặc `answer = ...` (giá trị là số float/int duy nhất).
+
+## VÍ DỤ MẪU:
+
+Ví dụ 1 (Tra cứu đơn):
+```python
+m = df1[df1['Chi_tieu'].str.contains(r'doanh thu thuần', case=False, na=False)]
+val = float(m.iloc[0]['Gia_tri'])
+answer = val / 1_000_000_000  # tỷ đồng
+print(answer)
+```
+
+Ví dụ 2 (Cộng dồn 2 chỉ tiêu):
+```python
+m_ngan = df1[df1['Chi_tieu'].str.contains(r'nợ ngắn hạn', case=False, na=False)]
+m_dai = df1[df1['Chi_tieu'].str.contains(r'nợ dài hạn', case=False, na=False)]
+val_ngan = float(m_ngan.iloc[0]['Gia_tri'])
+val_dai = float(m_dai.iloc[0]['Gia_tri'])
+answer = (val_ngan + val_dai) / 1_000_000_000  # tỷ đồng
+print(answer)
+```
+
+Ví dụ 3 (Tính tỷ lệ %):
+```python
+m_lnst = df1[df1['Chi_tieu'].str.contains(r'lợi nhuận sau thuế', case=False, na=False)]
+m_dtt = df1[df1['Chi_tieu'].str.contains(r'doanh thu thuần', case=False, na=False)]
+lnst = float(m_lnst.iloc[0]['Gia_tri'])
+dtt = float(m_dtt.iloc[0]['Gia_tri'])
+answer = (lnst / dtt) * 100
+print(answer)
+```
+{error_context}
+## CÂU HỎI:
+{question}
+
+Hãy viết code Python Pandas bên trong khối ```python ... ```:"""
         return prompt
 
     def _generate_transformers(self, prompt):
@@ -275,7 +266,11 @@ class PandasAgent:
             print(f"[Agent Warning] Error generating code ({self.backend}): {e}")
             return 'import pandas as pd\nprint(0.0)'
 
-    def execute_code(self, code):
+    def execute_code(self, code, csv_paths=None):
+        """
+        Thực thi code Pandas. Nạp sẵn các biến df1, df2, ... từ csv_paths vào scope
+        để hỗ trợ cả biểu thức đơn (eval) lẫn script đầy đủ (exec).
+        """
         old_stdout = sys.stdout
         new_stdout = io.StringIO()
         sys.stdout = new_stdout
@@ -293,12 +288,45 @@ class PandasAgent:
         pd.read_csv = _custom_read_csv
         try:
             exec_globals = {"pd": pd, "os": os, "re": re}
+            
+            # Load DataFrames for df1, df2, ...
+            if csv_paths:
+                for i, p in enumerate(csv_paths):
+                    real_p = p if os.path.exists(p) else p.replace("data/", "", 1)
+                    if not os.path.exists(real_p):
+                        bn = os.path.basename(p)
+                        ticker = bn.split("_")[0] if "_" in bn else ""
+                        cand = os.path.join("data", "processed_csv", ticker, bn)
+                        if os.path.exists(cand):
+                            real_p = cand
+                    if os.path.exists(real_p):
+                        try:
+                            exec_globals[f"df{i+1}"] = pd.read_csv(real_p)
+                        except Exception:
+                            pass
+
+            # Thử eval trước nếu là biểu thức 1 dòng
+            code_clean = code.strip()
+            if "\n" not in code_clean and not code_clean.startswith("import") and not code_clean.startswith("print"):
+                try:
+                    val = eval(code_clean, exec_globals)
+                    sys.stdout = old_stdout
+                    pd.read_csv = orig_read_csv
+                    return str(val), None
+                except Exception:
+                    pass
+
             exec(code, exec_globals)
             sys.stdout = old_stdout
             pd.read_csv = orig_read_csv
             result = new_stdout.getvalue().strip()
             if not result:
-                return None, "Output rỗng. Đảm bảo có print(kết_quả) ở cuối."
+                # Kiểm tra nếu có biến result hoặc answer trong globals
+                if "result" in exec_globals:
+                    return str(exec_globals["result"]), None
+                if "answer" in exec_globals:
+                    return str(exec_globals["answer"]), None
+                return None, "Output rỗng. Đảm bảo có print(kết_quả) hoặc trả về giá trị."
             last_line = result.strip().split("\n")[-1].strip()
             return last_line, None
         except Exception:
@@ -315,7 +343,7 @@ class PandasAgent:
         for attempt in range(max_retries):
             code = self.generate_code(question, csv_paths, error_log)
             last_code = code
-            ans, err = self.execute_code(code)
+            ans, err = self.execute_code(code, csv_paths=csv_paths)
             if err is None and ans is not None:
                 return ans, code, None
             error_log = err

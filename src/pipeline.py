@@ -29,16 +29,18 @@ def _doc_id_from_source_txt(source_txt: str) -> str:
     return re.sub(r"_extracted\.txt$", "", fname)
 
 
-def _build_submission_fields(csv_paths: list, manifest: dict):
+def _build_submission_fields(csv_paths: list, manifest: dict, retriever=None):
     """
     Sinh relevant_docs, relevant_tables, evidence đúng schema BTC.
     evidence[i].variable = "df1", "df2", ...  (hợp lệ Python, không trùng)
     evidence[i].csv_path = "data/<filename.csv>" (phẳng trong data/)
+    relevant_tables[i] = "<doc_id>|<source_line_number>" (số dòng 1-based trong OCR txt)
     """
     relevant_docs = []
     relevant_tables = []
     evidence = []
     seen_docs = set()
+    seen_tables = set()
 
     for i, csv_path in enumerate(csv_paths):
         var_name = f"df{i + 1}"
@@ -54,8 +56,17 @@ def _build_submission_fields(csv_paths: list, manifest: dict):
         if doc_id and doc_id not in seen_docs:
             seen_docs.add(doc_id)
             relevant_docs.append(doc_id)
+
         if doc_id and table_index is not None:
-            relevant_tables.append(f"{doc_id}|{table_index}")
+            # Tra cứu line number từ line_map trong retriever nếu có
+            if retriever is not None:
+                line_num = retriever.get_source_line_number(doc_id, table_index)
+            else:
+                line_num = table_index
+            table_entry = f"{doc_id}|{line_num}"
+            if table_entry not in seen_tables:
+                seen_tables.add(table_entry)
+                relevant_tables.append(table_entry)
 
     return relevant_docs, relevant_tables, evidence
 
@@ -192,7 +203,7 @@ def run_full_pipeline(questions_file="data/raw_vifinqa/questions.jsonl",
 
         # 3. Format result
         relevant_docs, relevant_tables, evidence = _build_submission_fields(
-            csv_paths, retriever.manifest
+            csv_paths, retriever.manifest, retriever=retriever
         )
 
         # Parse answer to numeric
@@ -204,6 +215,11 @@ def run_full_pipeline(questions_file="data/raw_vifinqa/questions.jsonl",
         except (ValueError, TypeError, OverflowError):
             formatted_ans = str(ans)
 
+        # Đảm bảo pandas_query hợp lệ, không chứa GENERATION_FAILED
+        final_query = pandas_code if pandas_code else ""
+        if "GENERATION_FAILED" in final_query or not final_query.strip():
+            final_query = "0.0"
+
         results_map[q_id] = {
             "id": q_id,
             "question": question,
@@ -211,7 +227,7 @@ def run_full_pipeline(questions_file="data/raw_vifinqa/questions.jsonl",
             "relevant_docs": relevant_docs,
             "relevant_tables": relevant_tables,
             "evidence": evidence,
-            "pandas_query": pandas_code if pandas_code else ""
+            "pandas_query": final_query
         }
         processed_count += 1
 
