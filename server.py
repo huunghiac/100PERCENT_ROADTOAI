@@ -53,6 +53,10 @@ def suggestions():
         "Lãi tiền gửi năm 2018 của công ty mẹ VJC là bao nhiêu triệu đồng?",
         "Doanh thu thuần của VNM năm 2023 là bao nhiêu tỷ đồng?",
         "Lợi nhuận sau thuế của ACB năm 2022 là bao nhiêu triệu đồng?",
+        "Chi phí quản lý doanh nghiệp của HPG năm 2022 là bao nhiêu tỷ đồng?",
+        "Tổng tài sản của BID năm 2021 là bao nhiêu tỷ đồng?"
+    ]
+
 @app.post("/api/chat")
 def chat(req: ChatRequest):
     q = req.question.strip()
@@ -164,7 +168,3 @@ def chat(req: ChatRequest):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-        "Chi phí quản lý doanh nghiệp của HPG năm 2022 là bao nhiêu tỷ đồng?",
-        "Tổng tài sản của BID năm 2021 là bao nhiêu tỷ đồng?"
-    ]
