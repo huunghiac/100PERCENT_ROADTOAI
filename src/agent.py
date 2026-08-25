@@ -70,16 +70,32 @@ class PandasAgent:
         cleaned = re.sub(r'<think>.*', '', cleaned, flags=re.DOTALL).strip()
         cleaned = re.sub(r'^\s*NEW\s+CODE:\s*', '', cleaned, flags=re.IGNORECASE)
 
-        # 1) Markdown code block ```python ... ```
-        code_match = re.search(r'```(?:python)?\s*(.*?)\s*```', cleaned, re.DOTALL)
-        if code_match:
-            code = code_match.group(1).strip()
+        code = None
+
+        # 0) Ưu tiên: tìm block # BEGIN SOLUTION ... # END SOLUTION
+        sol_match = re.search(r'#\s*BEGIN\s+SOLUTION\s*\n(.*?)#\s*END\s+SOLUTION', cleaned, re.DOTALL)
+        if sol_match:
+            code = sol_match.group(1).strip()
+
+        # 1) Tìm tất cả markdown code blocks, lấy block đầu tiên có nội dung thực
+        if not code:
+            blocks = re.findall(r'```(?:python)?\s*(.*?)\s*```', cleaned, re.DOTALL)
+            for block in blocks:
+                b = block.strip()
+                if len(b) > 10 and any(m in b for m in ['df1', 'df2', 'print(', 'answer', '.iloc', '.str.', 'float(', '# BEGIN']):
+                    code = b
+                    # Nếu block chứa BEGIN/END SOLUTION, cắt lấy phần trong
+                    inner = re.search(r'#\s*BEGIN\s+SOLUTION\s*\n(.*?)#\s*END\s+SOLUTION', b, re.DOTALL)
+                    if inner:
+                        code = inner.group(1).strip()
+                    break
+
         # 2) Có import pandas → lấy từ đó trở đi
-        elif "import pandas" in cleaned:
+        if not code and "import pandas" in cleaned:
             code = cleaned[cleaned.find("import pandas"):].strip()
-        else:
-            # 3) Thử lấy code trần: tìm dòng đầu tiên có dấu hiệu code Python
-            #    (df1, df2, float(, m =, val =, answer =, print(, .str.contains, .iloc)
+
+        # 3) Thử lấy code trần: tìm dòng đầu tiên có dấu hiệu code Python
+        if not code:
             code_lines = []
             found_code = False
             for line in cleaned.split("\n"):
@@ -88,27 +104,25 @@ class PandasAgent:
                     if found_code:
                         code_lines.append(line)
                     continue
-                # Dấu hiệu code Python
                 is_code = any(marker in stripped for marker in [
                     "df1", "df2", "df3", "float(", "int(", "abs(",
                     ".iloc", ".loc[", ".str.", "print(", "= pd.",
                     "answer", "result", "val ", "val=",
                     "m_", "m =", "row ", "row=",
                 ])
-                # Dòng bắt đầu bằng assignment hoặc hàm gọi
                 if not is_code:
                     is_code = bool(re.match(r'^[a-zA-Z_]\w*\s*=', stripped))
                 if is_code:
                     found_code = True
                     code_lines.append(line)
                 elif found_code:
-                    # Dừng khi gặp dòng text thuần (không phải code)
                     if not stripped.startswith("#"):
                         break
                     code_lines.append(line)
             code = "\n".join(code_lines).strip()
-            if not code:
-                return 'import pandas as pd\n# GENERATION_FAILED\nprint(0.0)'
+
+        if not code:
+            return 'import pandas as pd\n# GENERATION_FAILED\nprint(0.0)'
 
         # Cắt bỏ text giải thích sau code nếu model lỡ viết thêm.
         code = re.split(r'\n\s*(?:Explanation|Giải thích|Notes?):', code, maxsplit=1)[0].strip()
