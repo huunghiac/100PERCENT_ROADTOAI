@@ -69,16 +69,53 @@ class PandasAgent:
         cleaned = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL).strip()
         cleaned = re.sub(r'<think>.*', '', cleaned, flags=re.DOTALL).strip()
         cleaned = re.sub(r'^\s*NEW\s+CODE:\s*', '', cleaned, flags=re.IGNORECASE)
+
+        # 1) Markdown code block ```python ... ```
         code_match = re.search(r'```(?:python)?\s*(.*?)\s*```', cleaned, re.DOTALL)
         if code_match:
             code = code_match.group(1).strip()
+        # 2) Có import pandas → lấy từ đó trở đi
         elif "import pandas" in cleaned:
             code = cleaned[cleaned.find("import pandas"):].strip()
         else:
-            return 'import pandas as pd\n# GENERATION_FAILED\nprint(0.0)'
+            # 3) Thử lấy code trần: tìm dòng đầu tiên có dấu hiệu code Python
+            #    (df1, df2, float(, m =, val =, answer =, print(, .str.contains, .iloc)
+            code_lines = []
+            found_code = False
+            for line in cleaned.split("\n"):
+                stripped = line.strip()
+                if not stripped:
+                    if found_code:
+                        code_lines.append(line)
+                    continue
+                # Dấu hiệu code Python
+                is_code = any(marker in stripped for marker in [
+                    "df1", "df2", "df3", "float(", "int(", "abs(",
+                    ".iloc", ".loc[", ".str.", "print(", "= pd.",
+                    "answer", "result", "val ", "val=",
+                    "m_", "m =", "row ", "row=",
+                ])
+                # Dòng bắt đầu bằng assignment hoặc hàm gọi
+                if not is_code:
+                    is_code = bool(re.match(r'^[a-zA-Z_]\w*\s*=', stripped))
+                if is_code:
+                    found_code = True
+                    code_lines.append(line)
+                elif found_code:
+                    # Dừng khi gặp dòng text thuần (không phải code)
+                    if not stripped.startswith("#"):
+                        break
+                    code_lines.append(line)
+            code = "\n".join(code_lines).strip()
+            if not code:
+                return 'import pandas as pd\n# GENERATION_FAILED\nprint(0.0)'
+
         # Cắt bỏ text giải thích sau code nếu model lỡ viết thêm.
         code = re.split(r'\n\s*(?:Explanation|Giải thích|Notes?):', code, maxsplit=1)[0].strip()
-        return code if "print(" in code else code + "\nprint(0.0)"
+        # Đảm bảo có print hoặc assignment answer/result
+        if "print(" not in code and "answer" not in code and "result" not in code:
+            code += "\nprint(0.0)"
+        return code
 
     _PREVIEW_STOPWORDS = {
         "của", "cho", "và", "vào", "cuối", "trong", "năm", "là", "bao", "nhiêu",
@@ -261,7 +298,14 @@ Hãy viết code Python Pandas bên trong khối ```python ... ```:"""
                 raw_text = self._generate_transformers(prompt)
             else:
                 raw_text = self._generate_ollama(prompt)
-            return self.clean_response(raw_text)
+            # Debug: in raw output của model (cắt 500 ký tự đầu)
+            print(f"[Agent RAW] {raw_text[:500]}")
+            code = self.clean_response(raw_text)
+            if "GENERATION_FAILED" in code:
+                print(f"[Agent] clean_response → GENERATION_FAILED. Full raw ({len(raw_text)} chars):\n{raw_text[:1000]}")
+            else:
+                print(f"[Agent] Extracted code:\n{code}")
+            return code
         except Exception as e:
             print(f"[Agent Warning] Error generating code ({self.backend}): {e}")
             return 'import pandas as pd\nprint(0.0)'
@@ -344,6 +388,7 @@ Hãy viết code Python Pandas bên trong khối ```python ... ```:"""
             code = self.generate_code(question, csv_paths, error_log)
             last_code = code
             ans, err = self.execute_code(code, csv_paths=csv_paths)
+            print(f"[Agent] Attempt {attempt+1}/{max_retries}: ans={ans}, err={err[:200] if err else None}")
             if err is None and ans is not None:
                 return ans, code, None
             error_log = err
