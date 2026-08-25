@@ -96,17 +96,10 @@ def chat(req: ChatRequest):
         evidence_csv = fallback_res.csv_path
         matched_row_idx = fallback_res.row_index
     elif req.mode == "auto":
-        global agent
-        if agent is None:
-            agent = PandasAgent(backend="ollama", model_name="deepseek-r1:14b")
-        agent_ans, agent_code, _ = agent.run_agent(q, csv_paths)
-        try:
-            ans = float(agent_ans)
-            pandas_code = agent_code
-        except Exception:
-            if fallback_res:
-                ans = fallback_res.answer
-                pandas_code = fallback_res.pandas_query
+        # Skip PandasAgent - only use fallback for immediate response
+        if fallback_res:
+            ans = fallback_res.answer
+            pandas_code = fallback_res.pandas_query
 
     if ans is None:
         ans = 0.0
