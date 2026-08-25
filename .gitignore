@@ -1,4 +1,14 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
 
+# Data & Output Artifacts
 data/processed_csv/_rejected_cells.jsonl
 data/processed_csv/_quarantine.jsonl
 data/raw_vifinqa.tar.gz
+submission.json
+submission.zip
+*.log
+
