@@ -7,7 +7,7 @@ import time
 from retriever import TableRetriever
 from agent import PandasAgent
 from fallback import try_rule_based_answer
-from query_formatter import convert_script_to_expression
+from query_formatter import convert_script_to_expression, _safe_wrap_expr
 import pandas as pd
 
 
@@ -255,6 +255,40 @@ def run_full_pipeline(questions_file="data/raw_vifinqa/questions.jsonl",
             # Log nếu bị fallback về hằng số
             if final_query.startswith("float(") and "iloc" not in final_query and "contains" not in final_query:
                 print(f"  [QueryFmt] Constant fallback: {final_query}")
+
+        # Guard iloc[0] against IndexError on BTC evaluator
+        final_query = _safe_wrap_expr(final_query)
+
+        # --- Prune unused evidence ---
+        # Nếu pandas_query chỉ dùng df1 → loại df2 khỏi evidence & relevant_tables
+        used_vars = set(re.findall(r'\bdf(\d+)\b', final_query))
+        if used_vars and evidence:
+            pruned_evidence = []
+            pruned_tables = []
+            for ev_item in evidence:
+                vn = ev_item.get("variable", "")
+                var_num = vn.replace("df", "")
+                if var_num in used_vars:
+                    pruned_evidence.append(ev_item)
+            # Rebuild relevant_tables chỉ giữ entries tương ứng evidence còn lại
+            pruned_csv_basenames = {os.path.basename(ev.get("csv_path", "")) for ev in pruned_evidence}
+            for tbl_entry in relevant_tables:
+                # Giữ nếu bất kỳ pruned evidence CSV match doc_id trong table entry
+                keep = True  # giữ mặc định nếu không thể map
+                if "|" in tbl_entry:
+                    doc_part = tbl_entry.split("|")[0]
+                    # Giữ nếu bất kỳ CSV của evidence còn lại thuộc doc này
+                    keep = any(doc_part in bn for bn in pruned_csv_basenames)
+                if keep:
+                    pruned_tables.append(tbl_entry)
+            if pruned_evidence:
+                evidence = pruned_evidence
+                relevant_tables = pruned_tables
+
+        # --- Sanitize answer ---
+        if isinstance(formatted_ans, str):
+            if formatted_ans.strip().lower() in ("none", "nan", "null", "inf", "-inf", "error", ""):
+                formatted_ans = 0.0
 
         results_map[q_id] = {
             "id": q_id,

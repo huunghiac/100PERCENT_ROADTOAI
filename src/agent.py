@@ -212,6 +212,98 @@ class PandasAgent:
             return "%"
         return None
 
+    # ---- Unit helpers ----
+    _UNIT_VND_FACTOR = {
+        "VND": 1,
+        "Dong": 1,
+        "dong": 1,
+        "Nghin VND": 1_000,
+        "Nghin dong": 1_000,
+        "Trieu VND": 1_000_000,
+        "Trieu dong": 1_000_000,
+        "Ty dong": 1_000_000_000,
+        "%": None,           # không quy đổi
+        "VND/co phieu": 1,
+        "Co phieu": None,
+        "USD": None,
+        "EUR": None,
+        "JPY": None,
+        "mixed": None,
+    }
+
+    _TARGET_VND_FACTOR = {
+        "nghìn tỷ đồng": 1_000_000_000_000,
+        "tỷ đồng": 1_000_000_000,
+        "triệu đồng": 1_000_000,
+        "nghìn đồng": 1_000,
+    }
+
+    def _extract_csv_units(self, csv_paths: list) -> dict:
+        """Trả về dict {var_name: dominant_unit_string} cho từng CSV."""
+        result = {}
+        for i, path in enumerate(csv_paths):
+            var_name = f"df{i+1}"
+            real_path = path if os.path.exists(path) else path.replace("data/", "", 1)
+            if not os.path.exists(real_path):
+                bn = os.path.basename(path)
+                ticker = bn.split("_")[0] if "_" in bn else ""
+                cand = os.path.join("data", "processed_csv", ticker, bn)
+                if os.path.exists(cand):
+                    real_path = cand
+                else:
+                    result[var_name] = ""
+                    continue
+            try:
+                df = pd.read_csv(real_path, usecols=["Don_vi"], nrows=20)
+                units = df["Don_vi"].dropna().astype(str).value_counts()
+                result[var_name] = units.index[0] if len(units) > 0 else ""
+            except Exception:
+                result[var_name] = ""
+        return result
+
+    def _build_unit_guidance(self, csv_units: dict, target_unit: str) -> str:
+        """
+        Sinh hướng dẫn quy đổi đơn vị chính xác dựa trên đơn vị gốc THỰC TẾ
+        trong từng CSV và đơn vị yêu cầu của câu hỏi.
+        """
+        if target_unit == "%":
+            return "Câu hỏi yêu cầu TỶ LỆ PHẦN TRĂM (%). Tính tỷ số rồi nhân 100. KHÔNG chia cho bất kỳ hệ số nào."
+
+        target_factor = self._TARGET_VND_FACTOR.get(target_unit)
+        lines = []
+
+        for var_name, src_unit in csv_units.items():
+            src_factor = self._UNIT_VND_FACTOR.get(src_unit)
+            if src_factor is None or target_factor is None:
+                lines.append(f"- {var_name}: đơn vị gốc = '{src_unit}'. Giữ nguyên giá trị, KHÔNG chia/nhân.")
+                continue
+
+            if src_factor == target_factor:
+                lines.append(
+                    f"- {var_name}: đơn vị gốc = '{src_unit}' — CÂU HỎI cũng yêu cầu {target_unit} "
+                    f"→ GIỮ NGUYÊN giá trị. KHÔNG chia thêm."
+                )
+            elif src_factor < target_factor:
+                divisor = target_factor // src_factor
+                lines.append(
+                    f"- {var_name}: đơn vị gốc = '{src_unit}' — câu hỏi yêu cầu {target_unit} "
+                    f"→ CHIA giá trị cho {divisor:_}."
+                )
+            else:
+                multiplier = src_factor // target_factor
+                lines.append(
+                    f"- {var_name}: đơn vị gốc = '{src_unit}' — câu hỏi yêu cầu {target_unit} "
+                    f"→ NHÂN giá trị với {multiplier:_}."
+                )
+
+        if not lines:
+            if target_unit:
+                return f"Câu hỏi yêu cầu: {target_unit}. Kiểm tra cột Don_vi trong bảng để quy đổi phù hợp."
+            return "Giữ nguyên đơn vị gốc trong bảng."
+
+        header = f"Câu hỏi yêu cầu đáp án theo: {target_unit}.\n" if target_unit else "Giữ nguyên đơn vị gốc:\n"
+        return header + "\n".join(lines)
+
 
     _SYSTEM_PROMPT = """\
 Bạn là chuyên gia phân tích dữ liệu tài chính BCTC Việt Nam bằng Python Pandas.
@@ -233,6 +325,8 @@ TUYỆT ĐỐI KHÔNG:
     def _build_messages(self, question, csv_paths, error_log=None):
         preview = self.get_csv_preview(csv_paths, question)
         target_unit = self._detect_unit_request(question)
+        csv_units = self._extract_csv_units(csv_paths)
+        unit_guidance = self._build_unit_guidance(csv_units, target_unit)
 
         error_context = ""
         if error_log:
@@ -244,20 +338,17 @@ LỖI TỪ LẦN CHẠY TRƯỚC (cần sửa):
 Viết lại code mới sửa lỗi trên. KHÔNG lặp lại code cũ.
 """
 
-        unit_note = target_unit if target_unit else "theo đơn vị gốc trong bảng"
         user_content = f"""## BẢNG DỮ LIỆU (đã load sẵn):
 {preview}
 
-## HƯỚNG DẪN QUY ĐỔI ĐƠN VỊ:
-- Đơn vị gốc thường là VND (đồng).
-- "triệu đồng" → chia 1_000_000.  "tỷ đồng" → chia 1_000_000_000.
-- "nghìn tỷ đồng" → chia 1_000_000_000_000.
-- Tỷ lệ %, biên lợi nhuận → tính tỷ số rồi nhân 100.
-- Câu hỏi này yêu cầu: {unit_note}.
+## HƯỚNG DẪN QUY ĐỔI ĐƠN VỊ (BẮT BUỘC TUÂN THỦ):
+{unit_guidance}
+
+QUAN TRỌNG: Đọc kỹ đơn vị gốc ở trên. Nếu đơn vị gốc là 'Trieu VND' và câu hỏi yêu cầu 'triệu đồng' thì GIỮ NGUYÊN giá trị, KHÔNG chia thêm.
 
 ## VÍ DỤ:
 
-Ví dụ 1 — Tra cứu đơn giản:
+Ví dụ 1 — Tra cứu đơn giản (đơn vị gốc VND, hỏi tỷ đồng → chia 1_000_000_000):
 ```python
 m = df1[df1['Chi_tieu'].str.contains(r'doanh thu thuần', case=False, na=False)]
 val = float(m.iloc[0]['Gia_tri'])
@@ -265,27 +356,26 @@ answer = val / 1_000_000_000
 print(answer)
 ```
 
-Ví dụ 2 — Cộng dồn 2 chỉ tiêu:
+Ví dụ 2 — Đơn vị gốc Trieu VND, hỏi triệu đồng → GIỮ NGUYÊN:
 ```python
-m1 = df1[df1['Chi_tieu'].str.contains(r'nợ ngắn hạn', case=False, na=False)]
-m2 = df1[df1['Chi_tieu'].str.contains(r'nợ dài hạn', case=False, na=False)]
-answer = (float(m1.iloc[0]['Gia_tri']) + float(m2.iloc[0]['Gia_tri'])) / 1_000_000_000
+m = df1[df1['Chi_tieu'].str.contains(r'cho vay khách hàng', case=False, na=False)]
+answer = float(m.iloc[0]['Gia_tri'])
 print(answer)
 ```
 
-Ví dụ 3 — Tính tỷ lệ %:
+Ví dụ 3 — Đơn vị gốc Trieu VND, hỏi tỷ đồng → chia 1000:
+```python
+m = df1[df1['Chi_tieu'].str.contains(r'tổng tài sản', case=False, na=False)]
+answer = float(m.iloc[0]['Gia_tri']) / 1000
+print(answer)
+```
+
+Ví dụ 4 — Tính tỷ lệ %:
 ```python
 m_lnst = df1[df1['Chi_tieu'].str.contains(r'lợi nhuận sau thuế', case=False, na=False)]
 m_dtt = df1[df1['Chi_tieu'].str.contains(r'doanh thu thuần', case=False, na=False)]
 answer = float(m_lnst.iloc[0]['Gia_tri']) / float(m_dtt.iloc[0]['Gia_tri']) * 100
 print(answer)
-```
-
-Ví dụ 4 — Tìm theo tên công ty con/liên kết:
-```python
-m = df1[df1['Chi_tieu'].str.contains(r'Tên công ty', case=False, na=False)]
-val = float(m.iloc[0]['Gia_tri'])
-print(val)
 ```
 {error_context}
 ## CÂU HỎI:

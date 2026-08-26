@@ -78,10 +78,51 @@ class TableRetriever:
                 self.name_to_ticker[self._normalize_name(raw_name)] = ticker
                 self.name_to_ticker[raw_name.lower().strip()] = ticker
 
+    # ---- Hardcoded ticker aliases for entities that manifest name_to_ticker misses ----
+    _TICKER_ALIASES = {
+        # Chứng khoán (tên chứa ticker công ty mẹ → dễ nhầm)
+        "chứng khoán fpt": "FTS",
+        "ctcp chứng khoán fpt": "FTS",
+        "chứng khoán bản việt": "VCI",
+        "chứng khoán ssi": "SSI",
+        "chứng khoán mb": "MBS",
+        # Ngân hàng viết tắt phổ biến
+        "bidv": "BID",
+        "vietcombank": "VCB",
+        "vietinbank": "CTG",
+        "mbbank": "MBB",
+        "mb bank": "MBB",
+        "vpbank": "VPB",
+        "techcombank": "TCB",
+        "hdbank": "HDB",
+        "seabank": "SSB",
+        "sacombank": "STB",
+        "abbank": "ABB",
+        "bắc á bank": "BAB",
+        "bac a bank": "BAB",
+        "kienlongbank": "KLB",
+        "kiên long bank": "KLB",
+        "nam á bank": "NAB",
+        "nam a bank": "NAB",
+        # Bất động sản / công ty con tập đoàn
+        "vinhomes": "VHM",
+        "vincom retail": "VRE",
+        "sunshine homes": "SSH",
+        # Tập đoàn
+        "tập đoàn bảo việt": "BVH",
+        "bảo việt": "BVH",
+        "tập đoàn vingroup": "VIC",
+        "vingroup": "VIC",
+        "tập đoàn masan": "MSN",
+        "masan": "MSN",
+        "tập đoàn hòa phát": "HPG",
+        "hòa phát": "HPG",
+    }
+
     # ---- Noise tickers ----
     _NOISE_TICKERS = {
         "CTCP", "TNHH", "TMCP", "VND", "USD", "BTC", "JSC", "HĐQT",
-        "TCTD", "NHNN", "BIDV", "CKPT", "CNTT",
+        "TCTD", "NHNN", "CKPT", "CNTT",
         "EPS", "CFO", "DOH", "LDR", "ROE", "ROA", "NIM", "CIR",
         "CAR", "NPL", "COD",
     }
@@ -99,9 +140,16 @@ class TableRetriever:
     def extract_all_entities(self, question: str):
         """
         Trích xuất TẤT CẢ Tickers và Năm từ câu hỏi (hỗ trợ so sánh nhiều công ty / nhiều năm).
+        Ưu tiên: (1) hardcoded alias (longest match) → (2) paren ticker → (3) manifest name → (4) bare uppercase.
         """
         tickers = []
         q_lower = question.lower()
+
+        # 0. Hardcoded aliases — longest match first (chống nhầm "Chứng khoán FPT" → FPT thay vì FTS)
+        alias_sorted = sorted(self._TICKER_ALIASES.items(), key=lambda x: len(x[0]), reverse=True)
+        for alias_name, alias_ticker in alias_sorted:
+            if alias_name in q_lower and alias_ticker not in tickers:
+                tickers.append(alias_ticker)
 
         # 1. Tickers trong ngoặc: (VJC), (ACB)
         parens = re.findall(r'\(([A-Z][A-Z0-9]{1,3})\)', question)
@@ -109,15 +157,32 @@ class TableRetriever:
             if p not in self._NOISE_TICKERS and p in self.ticker_set and p not in tickers:
                 tickers.append(p)
 
-        # 2. Match company names
+        # 2. Match company names from manifest (longest match wins)
         for name_key, ticker in self.name_to_ticker.items():
             if name_key in q_lower and ticker not in tickers:
-                tickers.append(ticker)
+                # Kiểm tra alias đã cover ticker này chưa — tránh thêm FPT khi FTS đã match
+                already_covered = False
+                for alias_name, alias_ticker in alias_sorted:
+                    if alias_name in q_lower and alias_ticker != ticker:
+                        # alias match rồi, nếu name_key là substring của alias thì skip
+                        if name_key in alias_name or alias_name in name_key:
+                            already_covered = True
+                            break
+                if not already_covered:
+                    tickers.append(ticker)
 
         # 3. Bare uppercase match (e.g. "nhóm MSN, MCH, DBC, ASM và OGC")
         for c in re.findall(r'\b([A-Z][A-Z0-9]{1,3})\b', question):
             if c not in self._NOISE_TICKERS and c in self.ticker_set and c not in tickers:
-                tickers.append(c)
+                # Kiểm tra: nếu alias đã resolve ticker khác cho cùng context thì skip
+                # VD: "Chứng khoán FPT" → FTS đã có, skip bare "FPT"
+                skip = False
+                for alias_name, alias_ticker in alias_sorted:
+                    if alias_name in q_lower and c.lower() in alias_name and alias_ticker != c:
+                        skip = True
+                        break
+                if not skip:
+                    tickers.append(c)
 
         # 4. Years: 2016-2020 range hoặc các năm riêng lẻ
         years = []
@@ -298,7 +363,7 @@ class TableRetriever:
             real_path = p if os.path.exists(p) else p.replace("data/", "", 1)
             if os.path.exists(real_path):
                 try:
-                    df = pd.read_csv(real_path, usecols=["Chi_tieu"], nrows=80)
+                    df = pd.read_csv(real_path, usecols=["Chi_tieu"])
                     values = df["Chi_tieu"].dropna().astype(str).tolist()
                     chi_tieu_text = " ".join(values)
                     chi_tieu_cache[p] = " ".join(values).lower()

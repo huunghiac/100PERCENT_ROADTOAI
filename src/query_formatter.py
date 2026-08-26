@@ -123,3 +123,40 @@ def convert_script_to_expression(code: str, dfs: dict, expected_ans: float = 0.0
 
     # 5. Fallback hằng số
     return f"float({expected_ans})"
+
+
+# ---------------------------------------------------------------------------
+# Safe-wrap: guard iloc[0] against empty filter results → IndexError
+# ---------------------------------------------------------------------------
+
+_CONTAINS_ILOC_RE = re.compile(
+    r'(abs\()?'                          # optional abs(
+    r'float\('
+    r'(df\d+)\[\2\[\'Chi_tieu\'\]\.str\.contains\('
+    r'(r?[\'"].*?[\'"]'                  # pattern string
+    r'(?:,\s*case=False)?'
+    r'(?:,\s*na=False)?)'
+    r'\)\]'
+    r'\[\'Gia_tri\'\]\.iloc\[0\]'
+    r'\)'
+    r'(\))?'                             # closing abs)
+)
+
+
+def _safe_wrap_expr(expr: str) -> str:
+    """
+    Wrap mỗi `float(dfX[dfX[...].str.contains(...)]['Gia_tri'].iloc[0])`
+    thành lambda safe pattern trả 0.0 khi filter rỗng, chống IndexError
+    trên BTC evaluator.
+    """
+    def _replace(m):
+        has_abs = bool(m.group(1))
+        var = m.group(2)
+        contains_args = m.group(3)
+        filter_expr = f"{var}[{var}['Chi_tieu'].str.contains({contains_args})]"
+        inner = f"float(_m['Gia_tri'].iloc[0])"
+        if has_abs:
+            inner = f"abs({inner})"
+        return f"(lambda _m={filter_expr}: {inner} if len(_m) > 0 else 0.0)()"
+
+    return _CONTAINS_ILOC_RE.sub(_replace, expr)
