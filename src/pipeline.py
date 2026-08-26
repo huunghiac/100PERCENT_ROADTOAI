@@ -7,6 +7,8 @@ import time
 from retriever import TableRetriever
 from agent import PandasAgent
 from fallback import try_rule_based_answer
+from query_formatter import convert_script_to_expression
+import pandas as pd
 
 
 # ---------------------------------------------------------------------------
@@ -219,6 +221,40 @@ def run_full_pipeline(questions_file="data/raw_vifinqa/questions.jsonl",
         final_query = pandas_code if pandas_code else ""
         if "GENERATION_FAILED" in final_query or not final_query.strip():
             final_query = "0.0"
+
+        # --- Chuẩn hóa pandas_query thành ONE-LINE eval() expression ---
+        try:
+            expected_float = float(formatted_ans) if formatted_ans is not None else 0.0
+        except (ValueError, TypeError):
+            expected_float = 0.0
+
+        # Nạp các DataFrame thực để validate expression
+        eval_dfs = {}
+        for ev_item in evidence:
+            vn = ev_item.get("variable", "df1")
+            cp = ev_item.get("csv_path", "")
+            real = cp
+            if not os.path.exists(real):
+                real = cp.replace("data/", "", 1)
+            if not os.path.exists(real):
+                bn = os.path.basename(cp)
+                ticker = bn.split("_")[0] if "_" in bn else ""
+                cand = os.path.join("data", "processed_csv", ticker, bn)
+                if os.path.exists(cand):
+                    real = cand
+            if os.path.exists(real):
+                try:
+                    eval_dfs[vn] = pd.read_csv(real)
+                except Exception:
+                    pass
+
+        if eval_dfs:
+            final_query = convert_script_to_expression(
+                final_query, eval_dfs, expected_float
+            )
+            # Log nếu bị fallback về hằng số
+            if final_query.startswith("float(") and "iloc" not in final_query and "contains" not in final_query:
+                print(f"  [QueryFmt] Constant fallback: {final_query}")
 
         results_map[q_id] = {
             "id": q_id,

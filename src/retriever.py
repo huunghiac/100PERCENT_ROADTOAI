@@ -168,46 +168,115 @@ class TableRetriever:
         return tokens or self._tokenize(question)
 
     def _path_bonus(self, question_tokens: list, path: str) -> float:
-        """Generic financial-statement prior from indicator intent, not question ID."""
+        """
+        Boost điểm BM25 dựa trên ý định câu hỏi vs loại báo cáo trong tên file CSV.
+        3 nhóm chính: KQKD, LCTT, CĐKT + các nhóm thuyết minh chuyên biệt.
+        """
         p = path.lower()
         qt = set(question_tokens)
         bonus = 0.0
-        if {"lợi", "nhuận"} & qt or {"doanh", "thu"} <= qt or "chi" in qt:
-            if "baocaoketqua" in p or "ketquakinhdoanh" in p or "ketquahoatdong" in p:
-                bonus += 3.0
-        # Chỉ boost LCTT khi câu hỏi thật sự hỏi "lưu chuyển"; token "tiền" đơn lẻ quá nhiễu.
+
+        # --- Detect loại báo cáo trong filename ---
+        is_kqkd = "baocaoketqua" in p or "ketquakinhdoanh" in p or "ketquahoatdong" in p
+        is_lctt = "luuchuyentiente" in p or "lưuchuyểntiềntệ" in p or "baocaoluuchuyen" in p
+        is_cdkt = "bangcandoi" in p or "candoiketoan" in p or "tinhhinhtaichinh" in p
+
+        # --- KQKD: doanh thu, lợi nhuận, chi phí tài chính, chi phí bán hàng, EPS ---
+        kqkd_signal = False
+        if {"doanh", "thu"} <= qt:
+            kqkd_signal = True
+        if {"lợi", "nhuận"} & qt:
+            kqkd_signal = True
+        if "eps" in qt or {"lãi", "cổ", "phiếu"} <= qt:
+            kqkd_signal = True
+        if {"chi", "phí"} <= qt and {"tài", "chính"} <= qt:
+            kqkd_signal = True
+        if {"chi", "phí"} <= qt and {"bán", "hàng"} <= qt:
+            kqkd_signal = True
+        if {"giá", "vốn"} <= qt and {"hàng", "bán"} <= qt:
+            kqkd_signal = True
+        if kqkd_signal and is_kqkd:
+            bonus += 5.0
+        # Penalty: câu KQKD mà file là LCTT
+        if kqkd_signal and is_lctt and not is_kqkd:
+            bonus -= 2.0
+
+        # --- LCTT: lưu chuyển tiền, dòng tiền ---
+        lctt_signal = False
         if {"lưu", "chuyển"} <= qt or "luuchuyen" in qt:
-            if "luuchuyentiente" in p or "lưuchuyểntiềntệ" in p:
-                bonus += 5.0
-        if "tài" in qt and ("sản" in qt or "san" in p):
-            if "bangcandoi" in p or "tinhhinhtaichinh" in p:
-                bonus += 3.0
-        if "dự" in qt or "phòng" in qt or "duphong" in p:
+            lctt_signal = True
+        if {"dòng", "tiền"} <= qt:
+            lctt_signal = True
+        if lctt_signal and is_lctt:
+            bonus += 6.0
+        # Penalty: câu LCTT mà file là KQKD/CĐKT
+        if lctt_signal and not is_lctt:
+            bonus -= 2.0
+
+        # --- CĐKT: tổng tài sản, nợ, vốn chủ sở hữu, hàng tồn kho, phải thu/trả ---
+        cdkt_signal = False
+        if {"tổng", "tài", "sản"} <= qt:
+            cdkt_signal = True
+        if {"tổng", "nợ"} <= qt or {"nợ", "phải", "trả"} <= qt:
+            cdkt_signal = True
+        if {"vốn", "chủ"} <= qt or {"vốn", "sở"} <= qt:
+            cdkt_signal = True
+        if {"hàng", "tồn", "kho"} <= qt:
+            cdkt_signal = True
+        if {"phải", "thu"} <= qt and {"khách", "hàng"} <= qt:
+            cdkt_signal = True
+        if {"phải", "trả"} <= qt and {"người", "bán"} <= qt:
+            cdkt_signal = True
+        if {"tiền", "mặt"} <= qt or ({"tiền", "tương", "đương"} <= qt):
+            cdkt_signal = True
+        if cdkt_signal and is_cdkt:
+            bonus += 5.0
+        # Penalty: câu CĐKT mà file là LCTT
+        if cdkt_signal and is_lctt and not is_cdkt:
+            bonus -= 2.0
+
+        # --- Thuyết minh chuyên biệt (giữ nguyên logic cũ, tinh chỉnh) ---
+        # Dự phòng
+        if {"dự", "phòng"} <= qt:
             if "duphong" in p or "chiphihoatdong" in p:
-                bonus += 2.0
-        if "vay" in qt or "cho" in qt:
+                bonus += 3.0
+        # Cho vay khách hàng
+        if {"cho", "vay"} <= qt:
             if "chovay" in p or "khachhang" in p:
-                bonus += 2.0
-        # Boost thuyết minh đầu tư công ty con / tỷ lệ sở hữu / quyền biểu quyết
+                bonus += 3.0
+        # Thuyết minh đầu tư công ty con / tỷ lệ sở hữu / quyền biểu quyết
         if {"sở", "hữu"} <= qt or {"công", "con"} <= qt or "biểu" in qt:
             if "thuyetminh" in p or "dautu" in p or "congtycon" in p:
                 bonus += 4.0
-        # Boost tiền gửi tại TCTD
-        if "tctd" in qt or ("tiền" in qt and "gửi" in qt):
+        # Tiền gửi tại TCTD
+        if "tctd" in qt or ({"tiền", "gửi"} <= qt):
             if "tiengui" in p or "tctd" in p or "tuongduongtien" in p:
                 bonus += 3.0
-        # Boost cam kết ngoại bảng / giao dịch hối đoái
-        if "cam" in qt or "hối" in qt or "bảo" in qt:
+        # Cam kết ngoại bảng / giao dịch hối đoái
+        if {"cam", "kết"} <= qt or {"hối", "đoái"} <= qt:
             if "camket" in p or "nghiavu" in p or "ngoaibang" in p or "congcu" in p:
                 bonus += 3.0
-        # Boost thuế hiện hành
+        # Thuế hiện hành
         if "thuế" in qt and ("hiện" in qt or "hành" in qt):
-            if "thue" in p or "thuethu" in p or "ketquahoatdong" in p or "baocaoketqua" in p:
+            if "thue" in p or "thuethu" in p or is_kqkd:
                 bonus += 3.0
-        # Boost giá vốn
-        if "giá" in qt and "vốn" in qt:
+        # Giá vốn hàng hóa (thuyết minh riêng)
+        if {"giá", "vốn"} <= qt and {"hàng", "hóa"} <= qt:
             if "giavon" in p:
                 bonus += 4.0
+        # Vay và nợ thuê chính
+        if "vay" in qt and ("ngắn" in qt or "dài" in qt):
+            if "vayvano" in p or "vayvanothuechinh" in p:
+                bonus += 3.0
+        # Quỹ khen thưởng, phúc lợi
+        if "quỹ" in qt and ("khen" in qt or "phúc" in qt):
+            if "vonchusohuu" in p or "quy" in p:
+                bonus += 2.0
+        # Chi phí quản lý doanh nghiệp (thuyết minh)
+        if {"quản", "lý"} <= qt or {"quản", "lý", "doanh", "nghiệp"} <= qt:
+            if "chiphiquanly" in p or "chiphiquanlydoanhnghiep" in p:
+                bonus += 3.0
+
         return bonus
 
     def _bm25_rank(self, question: str, csv_paths: list, top_k: int) -> list:
