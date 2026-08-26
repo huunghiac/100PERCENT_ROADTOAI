@@ -13,7 +13,6 @@ Cấu hình khuyên dùng hiện tại:
 Repo:
 
 - **GitHub**: `https://github.com/huunghiac/100PERCENT_ROADTOAI.git`
-- **Hugging Face Dataset mirror**: `https://huggingface.co/datasets/huunghiac/vifinqa`
 
 > Lưu ý: `_manifest.jsonl` được lưu bằng Git LFS. Cần `git lfs pull` sau khi clone.
 
@@ -44,12 +43,12 @@ apt-get update && apt-get install -y git-lfs
 git lfs install
 
 if [ ! -d "Road-to-AI" ]; then
-  git clone https://huggingface.co/datasets/huunghiac/vifinqa Road-to-AI
+  git clone https://github.com/huunghiac/100PERCENT_ROADTOAI.git Road-to-AI
 fi
 
 cd Road-to-AI
 
-git pull
+git pull origin main
 
 git lfs pull
 
