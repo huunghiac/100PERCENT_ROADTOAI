@@ -1,8 +1,14 @@
+import os
+import sys
+
+# Đảm bảo import được các module trong cùng thư mục src/ dù chạy từ bất kỳ working directory nào
+_SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
+
 import json
 import zipfile
-import os
 import re
-import sys
 import time
 from retriever import TableRetriever
 from agent import PandasAgent

@@ -171,7 +171,8 @@ torch_dtype=torch.bfloat16
 ## 6. Cell 3 - Chạy thử 5 câu đầu (tự ghi log ra file)
 
 ```python
-import sys
+import sys, os
+sys.path.insert(0, os.path.abspath('src'))
 from pipeline import run_full_pipeline
 
 class LogTee:
@@ -224,7 +225,8 @@ Nếu validate OK, chạy full.
 ## 7b. Cell 4b - Chạy test 200 câu (đánh giá trước khi chạy full)
 
 ```python
-import sys
+import sys, os
+sys.path.insert(0, os.path.abspath('src'))
 from pipeline import run_full_pipeline
 
 logger = LogTee("pipeline_test200.log")
@@ -252,8 +254,11 @@ Validate & chấm điểm mô phỏng 200 câu:
 
 ---
 
+## 8. Cell 5 - Chạy toàn bộ bộ câu hỏi (tự ghi log ra file)
+
 ```python
-import sys
+import sys, os
+sys.path.insert(0, os.path.abspath('src'))
 from pipeline import run_full_pipeline
 
 logger = LogTee("pipeline_full.log")
