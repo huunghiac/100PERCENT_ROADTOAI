@@ -168,19 +168,45 @@ torch_dtype=torch.bfloat16
 
 ---
 
-## 6. Cell 3 - Chạy thử 5 câu đầu
+## 6. Cell 3 - Chạy thử 5 câu đầu (tự ghi log ra file)
 
 ```python
+import sys
 from pipeline import run_full_pipeline
 
-run_full_pipeline(
-    questions_file='data/raw_vifinqa/questions.jsonl',
-    output_json='submission_test5.json',
-    output_zip='submission_test5.zip',
-    max_questions=5,
-    checkpoint_interval=1,
-    agent=agent,
-)
+class LogTee:
+    """Ghi output song song ra màn hình và file log."""
+    def __init__(self, filepath="pipeline_test5.log"):
+        self.file = open(filepath, "w", encoding="utf-8")
+        self.stdout = sys.stdout
+
+    def write(self, text):
+        self.stdout.write(text)
+        self.file.write(text)
+        self.file.flush()
+
+    def flush(self):
+        self.stdout.flush()
+        self.file.flush()
+
+    def close(self):
+        self.file.close()
+        sys.stdout = self.stdout
+
+logger = LogTee("pipeline_test5.log")
+sys.stdout = logger
+
+try:
+    run_full_pipeline(
+        questions_file='data/raw_vifinqa/questions.jsonl',
+        output_json='submission_test5.json',
+        output_zip='submission_test5.zip',
+        max_questions=5,
+        checkpoint_interval=1,
+        agent=agent,
+    )
+finally:
+    logger.close()
 ```
 
 ---
@@ -195,19 +221,26 @@ Nếu validate OK, chạy full.
 
 ---
 
-## 8. Cell 5 - Chạy toàn bộ bộ câu hỏi
+## 8. Cell 5 - Chạy toàn bộ bộ câu hỏi (tự ghi log ra file)
 
 ```python
+import sys
 from pipeline import run_full_pipeline
 
-run_full_pipeline(
-    questions_file='data/raw_vifinqa/questions.jsonl',
-    output_json='submission.json',
-    output_zip='submission.zip',
-    max_questions=None,
-    checkpoint_interval=20,
-    agent=agent,
-)
+logger = LogTee("pipeline_full.log")
+sys.stdout = logger
+
+try:
+    run_full_pipeline(
+        questions_file='data/raw_vifinqa/questions.jsonl',
+        output_json='submission.json',
+        output_zip='submission.zip',
+        max_questions=None,
+        checkpoint_interval=20,
+        agent=agent,
+    )
+finally:
+    logger.close()
 ```
 
 ---
