@@ -221,7 +221,36 @@ Nếu validate OK, chạy full.
 
 ---
 
-## 8. Cell 5 - Chạy toàn bộ bộ câu hỏi (tự ghi log ra file)
+## 7b. Cell 4b - Chạy test 200 câu (đánh giá trước khi chạy full)
+
+```python
+import sys
+from pipeline import run_full_pipeline
+
+logger = LogTee("pipeline_test200.log")
+sys.stdout = logger
+
+try:
+    run_full_pipeline(
+        questions_file='data/raw_vifinqa/questions.jsonl',
+        output_json='submission_test200.json',
+        output_zip='submission_test200.zip',
+        max_questions=200,
+        checkpoint_interval=10,
+        agent=agent,
+    )
+finally:
+    logger.close()
+```
+
+Validate & chấm điểm mô phỏng 200 câu:
+
+```python
+!python validate_submission.py submission_test200.json
+!python tests/test_submission_eval.py submission_test200.json
+```
+
+---
 
 ```python
 import sys
