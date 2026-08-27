@@ -311,6 +311,7 @@ Bạn là chuyên gia phân tích dữ liệu tài chính BCTC Việt Nam bằng
 QUY TẮC BẮT BUỘC:
 - Trả lời bằng ĐÚNG MỘT code block ```python ... ``` duy nhất.
 - Các DataFrame df1, df2, ... ĐÃ ĐƯỢC NẠP SẴN. KHÔNG import thư viện. KHÔNG dùng pd.read_csv().
+- Luôn kiểm tra bảng nào chứa chỉ tiêu cần tìm. Nếu chỉ tiêu không có trong df1, hãy tìm trong df2 hoặc các bảng khác.
 - Tìm chỉ tiêu trong cột 'Chi_tieu' bằng .str.contains(r'...', case=False, na=False).
 - Lấy giá trị số từ cột 'Gia_tri': float(row['Gia_tri']).
 - Nếu bảng có nhiều cột số khác (ví dụ: tỷ lệ %, số lượng), dùng cột phù hợp với câu hỏi.
@@ -356,21 +357,29 @@ answer = val / 1_000_000_000
 print(answer)
 ```
 
-Ví dụ 2 — Đơn vị gốc Trieu VND, hỏi triệu đồng → GIỮ NGUYÊN:
+Ví dụ 2 — Chỉ tiêu nằm ở bảng thứ 2 (df2):
+```python
+m = df2[df2['Chi_tieu'].str.contains(r'phải thu ngắn hạn', case=False, na=False)]
+val = float(m.iloc[0]['Gia_tri'])
+answer = val / 1_000_000_000
+print(answer)
+```
+
+Ví dụ 3 — Đơn vị gốc Trieu VND, hỏi triệu đồng → GIỮ NGUYÊN:
 ```python
 m = df1[df1['Chi_tieu'].str.contains(r'cho vay khách hàng', case=False, na=False)]
 answer = float(m.iloc[0]['Gia_tri'])
 print(answer)
 ```
 
-Ví dụ 3 — Đơn vị gốc Trieu VND, hỏi tỷ đồng → chia 1000:
+Ví dụ 4 — Đơn vị gốc Trieu VND, hỏi tỷ đồng → chia 1000:
 ```python
 m = df1[df1['Chi_tieu'].str.contains(r'tổng tài sản', case=False, na=False)]
 answer = float(m.iloc[0]['Gia_tri']) / 1000
 print(answer)
 ```
 
-Ví dụ 4 — Tính tỷ lệ %:
+Ví dụ 5 — Tính tỷ lệ %:
 ```python
 m_lnst = df1[df1['Chi_tieu'].str.contains(r'lợi nhuận sau thuế', case=False, na=False)]
 m_dtt = df1[df1['Chi_tieu'].str.contains(r'doanh thu thuần', case=False, na=False)]

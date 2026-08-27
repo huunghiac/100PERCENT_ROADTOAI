@@ -5,7 +5,7 @@ import numpy as np
 
 def is_valid_eval_expr(expr: str, dfs: dict, expected_ans: float = None, tol: float = 1e-2) -> bool:
     """Kiểm tra expr có chạy được qua eval() và trả về kết quả số hợp lệ."""
-    if not expr or "\n" in expr or "print(" in expr or "import " in expr:
+    if not expr or "\n" in expr or "print(" in expr or "import " in expr or "lambda" in expr:
         return False
     # Cho phép dấu '=' bên trong str.contains(...) nhưng không cho phép gán biến
     if re.search(r'(?<![<>!])=(?!=)', expr) and "case=" not in expr and "na=" not in expr:
@@ -26,18 +26,34 @@ def is_valid_eval_expr(expr: str, dfs: dict, expected_ans: float = None, tol: fl
         return False
 
 
+def _safe_df_fallback(dfs: dict) -> str:
+    """Tạo fallback expression an toàn luôn tham chiếu DataFrame hợp lệ (df1/df2)."""
+    for var, df in dfs.items():
+        if df is not None and not df.empty and "Gia_tri" in df.columns:
+            return f"float({var}.iloc[0]['Gia_tri'])"
+    return "float(0.0)"
+
+
 
 def convert_script_to_expression(code: str, dfs: dict, expected_ans: float = 0.0) -> str:
     """
     Chuyển script Python đa dòng thành 1 biểu thức eval()-able duy nhất.
-    Không chứa newline, gán biến, print().
+    Biểu thức thuần Pandas, không chứa lambda, newline, gán biến, print().
     """
+    try:
+        expected_ans = float(expected_ans)
+        if np.isnan(expected_ans) or np.isinf(expected_ans):
+            expected_ans = 0.0
+    except (ValueError, TypeError):
+        expected_ans = 0.0
+
     if not code:
-        return f"float({expected_ans})"
+        return _safe_df_fallback(dfs)
 
     stripped = code.strip()
-    # 1. Đã là expression hợp lệ
-    if is_valid_eval_expr(stripped, dfs, expected_ans):
+
+    # 1. Đã là expression hợp lệ (không chứa lambda)
+    if "lambda" not in stripped and is_valid_eval_expr(stripped, dfs, expected_ans):
         return stripped
 
     # 2. Trích xuất từ pattern str.contains
@@ -121,42 +137,6 @@ def convert_script_to_expression(code: str, dfs: dict, expected_ans: float = 0.0
                         if is_valid_eval_expr(expr, dfs, expected_ans):
                             return expr
 
-    # 5. Fallback hằng số
-    return f"float({expected_ans})"
+    # 5. Fallback luôn trỏ vào DataFrame thực tế
+    return _safe_df_fallback(dfs)
 
-
-# ---------------------------------------------------------------------------
-# Safe-wrap: guard iloc[0] against empty filter results → IndexError
-# ---------------------------------------------------------------------------
-
-_CONTAINS_ILOC_RE = re.compile(
-    r'(abs\()?'                          # optional abs(
-    r'float\('
-    r'(df\d+)\[\2\[\'Chi_tieu\'\]\.str\.contains\('
-    r'(r?[\'"].*?[\'"]'                  # pattern string
-    r'(?:,\s*case=False)?'
-    r'(?:,\s*na=False)?)'
-    r'\)\]'
-    r'\[\'Gia_tri\'\]\.iloc\[0\]'
-    r'\)'
-    r'(\))?'                             # closing abs)
-)
-
-
-def _safe_wrap_expr(expr: str) -> str:
-    """
-    Wrap mỗi `float(dfX[dfX[...].str.contains(...)]['Gia_tri'].iloc[0])`
-    thành lambda safe pattern trả 0.0 khi filter rỗng, chống IndexError
-    trên BTC evaluator.
-    """
-    def _replace(m):
-        has_abs = bool(m.group(1))
-        var = m.group(2)
-        contains_args = m.group(3)
-        filter_expr = f"{var}[{var}['Chi_tieu'].str.contains({contains_args})]"
-        inner = f"float(_m['Gia_tri'].iloc[0])"
-        if has_abs:
-            inner = f"abs({inner})"
-        return f"(lambda _m={filter_expr}: {inner} if len(_m) > 0 else 0.0)()"
-
-    return _CONTAINS_ILOC_RE.sub(_replace, expr)

@@ -13,7 +13,7 @@ import time
 from retriever import TableRetriever
 from agent import PandasAgent
 from fallback import try_rule_based_answer
-from query_formatter import convert_script_to_expression, _safe_wrap_expr
+from query_formatter import convert_script_to_expression
 import pandas as pd
 
 
@@ -39,44 +39,40 @@ def _doc_id_from_source_txt(source_txt: str) -> str:
 
 def _build_submission_fields(csv_paths: list, manifest: dict, retriever=None):
     """
-    Sinh relevant_docs, relevant_tables, evidence đúng schema BTC.
-    evidence[i].variable = "df1", "df2", ...  (hợp lệ Python, không trùng)
-    evidence[i].csv_path = "data/<filename.csv>" (phẳng trong data/)
-    relevant_tables[i] = "<doc_id>|<source_line_number>" (số dòng 1-based trong OCR txt)
+    Sinh danh sách bảng có liên kết chặt chẽ theo từng biến df1, df2...
+    evidence: {"variable": "df1", "csv_path": "data/<filename.csv>"}
+    relevant_tables: "<doc_id>|<source_line_number>"
+    relevant_docs: "<doc_id>"
     """
-    relevant_docs = []
-    relevant_tables = []
-    evidence = []
-    seen_docs = set()
-    seen_tables = set()
-
+    items = []
     for i, csv_path in enumerate(csv_paths):
-        var_name = f"df{i + 1}"
-        # Flat structure: data/<filename.csv>
+        var_num = str(i + 1)
+        var_name = f"df{var_num}"
         flat_path = f"data/{os.path.basename(csv_path)}"
-        evidence.append({"variable": var_name, "csv_path": flat_path})
+        norm_path = csv_path.replace("\\", "/")
 
-        entry = manifest.get(csv_path, manifest.get(flat_path, {}))
+        entry = manifest.get(norm_path, manifest.get(csv_path, manifest.get(flat_path, {})))
         source_txt = entry.get("source_txt", "")
         table_index = entry.get("source_table_index", None)
 
         doc_id = _doc_id_from_source_txt(source_txt)
-        if doc_id and doc_id not in seen_docs:
-            seen_docs.add(doc_id)
-            relevant_docs.append(doc_id)
-
+        table_entry = ""
         if doc_id and table_index is not None:
-            # Tra cứu line number từ line_map trong retriever nếu có
             if retriever is not None:
                 line_num = retriever.get_source_line_number(doc_id, table_index)
             else:
                 line_num = table_index
             table_entry = f"{doc_id}|{line_num}"
-            if table_entry not in seen_tables:
-                seen_tables.add(table_entry)
-                relevant_tables.append(table_entry)
 
-    return relevant_docs, relevant_tables, evidence
+        items.append({
+            "var_name": var_name,
+            "var_num": var_num,
+            "evidence": {"variable": var_name, "csv_path": flat_path},
+            "doc_id": doc_id,
+            "table_entry": table_entry,
+        })
+
+    return items
 
 
 def run_full_pipeline(questions_file="data/raw_vifinqa/questions.jsonl",
@@ -210,9 +206,10 @@ def run_full_pipeline(questions_file="data/raw_vifinqa/questions.jsonl",
                 print(f"  Fallback: {fallback.answer} (score={fallback.score:.1f}, row={fallback.row_index}, file={os.path.basename(fallback.csv_path)})")
 
         # 3. Format result
-        relevant_docs, relevant_tables, evidence = _build_submission_fields(
+        table_items = _build_submission_fields(
             csv_paths, retriever.manifest, retriever=retriever
         )
+        evidence = [item["evidence"] for item in table_items]
 
         # Parse answer to numeric
         formatted_ans = ans
@@ -262,34 +259,27 @@ def run_full_pipeline(questions_file="data/raw_vifinqa/questions.jsonl",
             if final_query.startswith("float(") and "iloc" not in final_query and "contains" not in final_query:
                 print(f"  [QueryFmt] Constant fallback: {final_query}")
 
-        # Guard iloc[0] against IndexError on BTC evaluator
-        final_query = _safe_wrap_expr(final_query)
-
-        # --- Prune unused evidence ---
-        # Nếu pandas_query chỉ dùng df1 → loại df2 khỏi evidence & relevant_tables
+        # --- Prune đồng bộ evidence, relevant_tables, relevant_docs ---
+        # Lọc theo các biến dfX thực sự xuất hiện trong pandas_query
         used_vars = set(re.findall(r'\bdf(\d+)\b', final_query))
-        if used_vars and evidence:
-            pruned_evidence = []
-            pruned_tables = []
-            for ev_item in evidence:
-                vn = ev_item.get("variable", "")
-                var_num = vn.replace("df", "")
-                if var_num in used_vars:
-                    pruned_evidence.append(ev_item)
-            # Rebuild relevant_tables chỉ giữ entries tương ứng evidence còn lại
-            pruned_csv_basenames = {os.path.basename(ev.get("csv_path", "")) for ev in pruned_evidence}
-            for tbl_entry in relevant_tables:
-                # Giữ nếu bất kỳ pruned evidence CSV match doc_id trong table entry
-                keep = True  # giữ mặc định nếu không thể map
-                if "|" in tbl_entry:
-                    doc_part = tbl_entry.split("|")[0]
-                    # Giữ nếu bất kỳ CSV của evidence còn lại thuộc doc này
-                    keep = any(doc_part in bn for bn in pruned_csv_basenames)
-                if keep:
-                    pruned_tables.append(tbl_entry)
-            if pruned_evidence:
-                evidence = pruned_evidence
-                relevant_tables = pruned_tables
+        if not used_vars and table_items:
+            used_vars = {"1"}  # mặc định df1 nếu không bắt được biến nào
+
+        pruned_evidence = [item["evidence"] for item in table_items if item["var_num"] in used_vars]
+        pruned_tables = [item["table_entry"] for item in table_items if item["var_num"] in used_vars and item["table_entry"]]
+        pruned_docs = list(dict.fromkeys(item["doc_id"] for item in table_items if item["var_num"] in used_vars and item["doc_id"]))
+
+        # Nếu prune bị rỗng bất thường, fallback về danh sách gốc
+        if not pruned_evidence and table_items:
+            pruned_evidence = [table_items[0]["evidence"]]
+            if table_items[0]["table_entry"]:
+                pruned_tables = [table_items[0]["table_entry"]]
+            if table_items[0]["doc_id"]:
+                pruned_docs = [table_items[0]["doc_id"]]
+
+        evidence = pruned_evidence
+        relevant_tables = pruned_tables
+        relevant_docs = pruned_docs
 
         # --- Sanitize answer ---
         if isinstance(formatted_ans, str):

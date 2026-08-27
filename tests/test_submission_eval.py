@@ -2,6 +2,7 @@
 import json
 import os
 import sys
+import re
 import pandas as pd
 import numpy as np
 
@@ -31,6 +32,8 @@ def simulate_btc_eval(submission_path="submission.json", csv_dir="data/processed
 
         # 1. Kiểm tra format relevant_tables: <doc_id>|<line_number>
         tbl_ok = True
+        if not rel_tables and evidence:
+            tbl_ok = False  # Lỗi nếu có evidence mà relevant_tables bị rỗng
         for t in rel_tables:
             parts = t.split("|")
             if len(parts) != 2 or not parts[1].isdigit():
@@ -38,6 +41,14 @@ def simulate_btc_eval(submission_path="submission.json", csv_dir="data/processed
                 break
         if tbl_ok and rel_tables:
             table_format_ok += 1
+
+        # 1b. Kiểm tra quy chuẩn AST / Cú pháp query
+        query_has_lambda = "lambda" in query
+        query_has_df = bool(re.search(r'\bdf\d+\b', query))
+        if query_has_lambda:
+            errors.append((q_id, "Query contains forbidden 'lambda'", query[:60]))
+        elif not query_has_df and query != "0.0":
+            errors.append((q_id, "Query does not reference any DataFrame variable", query[:60]))
 
         # 2. Chuẩn bị môi trường nạp DataFrames
         exec_scope = {"pd": pd, "np": np}

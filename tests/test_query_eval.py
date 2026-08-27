@@ -68,9 +68,9 @@ def test_ratio_percent():
 def test_fallback_constant():
     dfs = {"df1": pd.DataFrame({"Chi_tieu": ["X"], "Gia_tri": [999.0]})}
     result = convert_script_to_expression("garbage code", dfs, 42.5)
-    assert result == "float(42.5)", f"Expected constant fallback, got: {result}"
-    val = eval(result, {})
-    assert abs(float(val) - 42.5) < 0.01
+    assert result == "float(df1.iloc[0]['Gia_tri'])", f"Expected df fallback, got: {result}"
+    val = eval(result, {"df1": dfs["df1"]})
+    assert abs(float(val) - 999.0) < 0.01
     print(f"  PASS test_fallback_constant -> {result}")
 
 
