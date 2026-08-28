@@ -328,6 +328,11 @@ class TableRetriever:
             "giá trị còn lại", "nguyên giá",
             "cho vay khách hàng", "tổng dư nợ",
             "quyền sử dụng đất",
+            "lãi vay phải trả", "lãi phải trả", "chi phí phải trả",
+            "thuế thu nhập doanh nghiệp phải trả", "thuế phải trả",
+            "số dư cho vay", "dư nợ cho vay", "cho vay đối với",
+            "trái phiếu phát hành", "kỳ phiếu", "chứng chỉ tiền gửi",
+            "bất động sản đầu tư", "giá trị hợp lý",
         ]
         if any(ph in q_raw for ph in _cdkt_phrases):
             cdkt_signal = True
@@ -347,6 +352,39 @@ class TableRetriever:
         # Cờ bảng số tiết mục (numbered thuyết minh: _4TienVa_, _5PhanTich_,...)
         import re as _re
         is_numbered_note = bool(_re.search(r'_\d+[a-z]', p.lower()))
+
+        # Tin hieu Phan tich chat luong no (NPL)
+        npl_signal = False
+        _npl_phrases = [
+            "phân tích chất lượng nợ", "nợ đủ tiêu chuẩn", "nợ cần chú ý",
+            "nợ dưới tiêu chuẩn", "nợ nghi ngờ", "nợ xấu", "phân loại nợ",
+            "nợ có khả năng mất vốn",
+        ]
+        if any(ph in q_raw for ph in _npl_phrases):
+            npl_signal = True
+
+        # Tin hieu hoat dong thu nhap ngan hang chuyen biet
+        bank_activity_signal = False
+        _bank_activity_phrases = [
+            "lãi thuần từ hoạt động dịch vụ",
+            "lãi thuần từ hoạt động kinh doanh ngoại tệ",
+            "lãi thuần từ hoạt động mua bán chứng khoán",
+            "lãi thuần từ hoạt động khác",
+            "thu nhập từ hoạt động dịch vụ",
+            "lãi thuần từ góp vốn",
+        ]
+        if any(ph in q_raw for ph in _bank_activity_phrases):
+            bank_activity_signal = True
+
+        # Tin hieu tien gui NHNN / TCTD chuyen biet
+        bank_deposit_signal = False
+        _bank_deposit_phrases = [
+            "tiền gửi tại nhnn", "tiền gửi tại ngân hàng nhà nước",
+            "tiền gửi tại tctd", "số dư kỳ phiếu", "trái phiếu trung hạn",
+            "chứng chỉ tiền gửi",
+        ]
+        if any(ph in q_raw for ph in _bank_deposit_phrases):
+            bank_deposit_signal = True
 
         # -----------------------------------------------------------------------
         # TẦNG B: Áp dụng điểm thưởng / phạt theo ý định BCTC
@@ -424,6 +462,32 @@ class TableRetriever:
         if {"quản", "lý"} <= qt or {"quản", "lý", "doanh", "nghiệp"} <= qt:
             if "chiphiquanly" in p or "chiphiquanlydoanhnghiep" in p:
                 bonus += 3.0
+
+        # --- Phân tích chất lượng nợ (NPL) ---
+        if npl_signal:
+            p_slug = p.split("/")[-1].lower()
+            if any(kw in p_slug for kw in ["phantich", "chatluong", "phanloai", "nochova"]):
+                bonus += 12.0
+            elif is_cdkt or is_kqkd:
+                bonus -= 3.0
+
+        # --- Lãi thuần từ hoạt động chuyên biệt (ngân hàng) ---
+        if bank_activity_signal:
+            p_slug = p.split("/")[-1].lower()
+            if any(kw in p_slug for kw in ["laithuan", "hoatdong", "dichvu", "ngoaite", "chungkhoan", "gopvon"]):
+                bonus += 10.0
+            if is_cdkt or is_lctt:
+                bonus -= 3.0
+
+        # --- Tiền gửi NHNN / TCTD chuyên biệt ---
+        if bank_deposit_signal:
+            p_slug = p.split("/")[-1].lower()
+            if any(kw in p_slug for kw in ["tiengui", "nhnn", "tctd", "tuongduongtien"]):
+                bonus += 12.0
+
+        # --- Penalty nhẹ cho trang phụ (_02, _03...) để ưu tiên trang chính ---
+        if _re.search(r'_0[2-9]\.csv$', p.lower()):
+            bonus -= 2.0
 
         return bonus
 

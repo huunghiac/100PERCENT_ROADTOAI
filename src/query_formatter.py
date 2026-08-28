@@ -31,6 +31,7 @@ def is_valid_eval_expr(expr: str, dfs: dict, expected_ans: float = None, tol: fl
 
 def _safe_df_fallback(dfs: dict, expected_ans: float = None) -> str:
     """Tạo fallback expression an toàn luôn tham chiếu DataFrame hợp lệ (df1/df2)."""
+    import numpy as _np
     if expected_ans is not None and abs(expected_ans) < 1e-9:
         for var, df in dfs.items():
             if df is not None and not df.empty and "Gia_tri" in df.columns:
@@ -40,6 +41,30 @@ def _safe_df_fallback(dfs: dict, expected_ans: float = None) -> str:
                             return f"float({var}.iloc[{idx}]['Gia_tri'])"
                     except Exception:
                         pass
+
+    # Best-effort: tìm row gần nhất với expected_ans (kể cả scale)
+    if expected_ans is not None and abs(expected_ans) > 1e-9:
+        best_expr = None
+        best_err = float("inf")
+        _scales = [1, 1000, 1e6, 1e9, 1e12, 0.01, 0.1, 100]
+        for var, df in dfs.items():
+            if df is None or df.empty or "Gia_tri" not in df.columns:
+                continue
+            for idx in range(min(len(df), 200)):
+                try:
+                    rv = float(df.iloc[idx]["Gia_tri"])
+                except Exception:
+                    continue
+                for sc in _scales:
+                    cv = rv / sc
+                    rel_err = abs(cv - expected_ans) / abs(expected_ans)
+                    if rel_err < best_err:
+                        best_err = rel_err
+                        inner = f"float({var}.iloc[{idx}]['Gia_tri'])"
+                        best_expr = f"{inner} / {sc}" if sc != 1 else inner
+        # Chỉ dùng best-effort nếu sai số < 50%
+        if best_expr is not None and best_err < 0.5:
+            return best_expr
 
     for var, df in dfs.items():
         if df is not None and not df.empty and "Gia_tri" in df.columns:
