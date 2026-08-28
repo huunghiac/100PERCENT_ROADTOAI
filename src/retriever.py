@@ -277,51 +277,111 @@ class TableRetriever:
         is_lctt = "luuchuyentiente" in p or "lưuchuyểntiềntệ" in p or "baocaoluuchuyen" in p
         is_cdkt = "bangcandoi" in p or "candoiketoan" in p or "tinhhinhtaichinh" in p
 
-        # --- KQKD: doanh thu, lợi nhuận, chi phí tài chính, chi phí bán hàng, EPS ---
+        # -----------------------------------------------------------------------
+        # TẦNG A: Phân loại ý định BCTC (Intent Classification)
+        # -----------------------------------------------------------------------
+        # Tín hiệu KQKD
         kqkd_signal = False
-        if "doanh thu" in q_raw or "lợi nhuận" in q_raw or "lãi gộp" in q_raw or "lỗ thuần" in q_raw:
+        _kqkd_phrases = [
+            "doanh thu", "lợi nhuận", "lãi gộp", "lỗ thuần", "lãi thuần",
+            "thu nhập lãi thuần", "thu nhập hoạt động", "thu nhập từ",
+            "chi phí tài chính", "chi phí bán hàng", "chi phí quản lý",
+            "chi phí hoạt động", "chi phí lãi vay", "chi phí dự phòng",
+            "giá vốn hàng bán", "giá vốn hàng hóa",
+            "lãi cơ bản trên cổ phiếu", "lãi pha loãng",
+            "lãi thuần từ hoạt động", "lãi từ hoạt động",
+            "thu nhập lãi", "chi phí lãi",
+            "thuế thu nhập doanh nghiệp",
+        ]
+        if any(ph in q_raw for ph in _kqkd_phrases):
             kqkd_signal = True
-        if "eps" in qt or {"lãi", "cổ", "phiếu"} <= qt:
+        if "eps" in qt or ({"lãi", "cổ", "phiếu"} <= qt):
             kqkd_signal = True
-        if {"chi", "phí"} <= qt and ({"tài", "chính"} <= qt or {"bán", "hàng"} <= qt):
-            kqkd_signal = True
-        if {"giá", "vốn"} <= qt and {"hàng", "bán"} <= qt:
-            kqkd_signal = True
-        if "thu nhập lãi thuần" in q_raw or "thu nhập hoạt động" in q_raw:
-            kqkd_signal = True
-        if kqkd_signal and is_kqkd:
-            bonus += 7.0
-        # Penalty: câu KQKD mà file là LCTT
-        if kqkd_signal and is_lctt and not is_kqkd:
-            bonus -= 3.0
 
-        # --- LCTT: lưu chuyển tiền, dòng tiền ---
+        # Tín hiệu LCTT
         lctt_signal = False
-        if "lưu chuyển" in q_raw or "luuchuyen" in q_raw or "dòng tiền" in q_raw:
+        _lctt_phrases = [
+            "lưu chuyển tiền", "luuchuyen", "dòng tiền", "tiền thuần từ",
+            "tiền thu từ", "tiền chi từ", "tiền cuối kỳ", "tiền đầu kỳ",
+            "lưu chuyển thuần", "hoạt động kinh doanh", "hoạt động đầu tư",
+            "hoạt động tài chính",
+            "chi phí lãi vay đã trả",
+        ]
+        if any(ph in q_raw for ph in _lctt_phrases):
             lctt_signal = True
-        if "tiền thuần từ" in q_raw:
-            lctt_signal = True
-        if lctt_signal and is_lctt:
-            bonus += 8.0
-        # Penalty: câu LCTT mà file là KQKD/CĐKT
-        if lctt_signal and not is_lctt:
-            bonus -= 3.0
 
-        # --- CĐKT: tổng tài sản, nợ, vốn chủ sở hữu, hàng tồn kho, phải thu/trả ---
+        # Tín hiệu CĐKT
         cdkt_signal = False
-        if "tổng tài sản" in q_raw or "vốn chủ sở hữu" in q_raw or "vốn cổ phần" in q_raw:
+        _cdkt_phrases = [
+            "tổng tài sản", "tổng cộng tài sản", "tài sản ngắn hạn",
+            "tài sản dài hạn", "tài sản cố định", "tài sản vô hình",
+            "vốn chủ sở hữu", "vốn cổ phần", "thặng dư vốn cổ phần",
+            "lợi nhuận chưa phân phối", "tổng vốn chủ",
+            "nợ phải trả", "tổng nợ", "nợ ngắn hạn", "nợ dài hạn",
+            "hàng tồn kho", "phải thu", "phải trả",
+            "tiền và các khoản tương đương", "tiền và tương đương",
+            "tiền mặt", "tiền gửi tại", "số dư tiền",
+            "vay ngắn hạn", "vay dài hạn", "tổng vay", "dư nợ vay",
+            "tổng nguồn vốn", "tổng cộng nguồn vốn",
+            "đầu tư vào công ty con", "đầu tư vào các công ty",
+            "tài sản xây dựng cơ bản", "xây dựng cơ bản dở dang",
+            "giá trị còn lại", "nguyên giá",
+            "cho vay khách hàng", "tổng dư nợ",
+            "quyền sử dụng đất",
+        ]
+        if any(ph in q_raw for ph in _cdkt_phrases):
             cdkt_signal = True
-        if "nợ phải trả" in q_raw or "tổng nợ" in q_raw or "hàng tồn kho" in q_raw:
-            cdkt_signal = True
-        if "phải thu" in q_raw or "phải trả" in q_raw or "tiền và tương đương" in q_raw:
-            cdkt_signal = True
-        if "tiền gửi tại" in q_raw or "vay ngắn hạn" in q_raw or "vay dài hạn" in q_raw:
-            cdkt_signal = True
+
+        # Tín hiệu Thuyết minh chuyên biệt
+        # (Câu hỏi hỏi số liệu chi tiết, không phải số tổng hợp BCTC chính)
+        note_signal = False
+        _note_phrases = [
+            "thù lao", "hđqt", "hội đồng quản trị", "ban giám đốc",
+            "tỷ lệ sở hữu", "biểu quyết", "cổ đông lớn",
+            "giao dịch bên liên quan", "bên liên quan",
+            "phân tích nợ xấu", "tài sản thế chấp", "cầm cố",
+        ]
+        if any(ph in q_raw for ph in _note_phrases):
+            note_signal = True
+
+        # Cờ bảng số tiết mục (numbered thuyết minh: _4TienVa_, _5PhanTich_,...)
+        import re as _re
+        is_numbered_note = bool(_re.search(r'_\d+[a-z]', p.lower()))
+
+        # -----------------------------------------------------------------------
+        # TẦNG B: Áp dụng điểm thưởng / phạt theo ý định BCTC
+        # -----------------------------------------------------------------------
+
+        # --- KQKD: ưu tiên file Báo Cáo Kết Quả Kinh Doanh ---
+        if kqkd_signal and is_kqkd:
+            bonus += 12.0
+        # Penalty mạnh nếu câu KQKD nhưng file là LCTT
+        if kqkd_signal and is_lctt and not is_kqkd:
+            bonus -= 5.0
+        # Penalty nhẹ nếu câu KQKD nhưng file là bảng số tiết mục
+        if kqkd_signal and is_numbered_note and not is_kqkd and not is_cdkt:
+            bonus -= 5.0
+
+        # --- LCTT: ưu tiên file Báo Cáo Lưu Chuyển Tiền Tệ ---
+        if lctt_signal and is_lctt:
+            bonus += 12.0
+        # Penalty mạnh nếu câu LCTT nhưng file không phải LCTT
+        if lctt_signal and not is_lctt:
+            bonus -= 5.0
+
+        # --- CĐKT: ưu tiên file Bảng Cân Đối Kế Toán ---
         if cdkt_signal and is_cdkt:
-            bonus += 7.0
-        # Penalty: câu CĐKT mà file là LCTT
+            bonus += 12.0
+        # Penalty nếu câu CĐKT nhưng file là LCTT
         if cdkt_signal and is_lctt and not is_cdkt:
-            bonus -= 3.0
+            bonus -= 5.0
+        # Penalty nếu câu CĐKT nhưng file là bảng số tiết mục
+        if cdkt_signal and is_numbered_note and not is_cdkt:
+            bonus -= 5.0
+
+        # --- Thuyết minh chuyên biệt: ưu tiên file Thuyết Minh nếu tín hiệu rõ ---
+        if note_signal and ("thuyetminh" in p or "dautu" in p or "congtycon" in p):
+            bonus += 10.0
 
         # --- Thuyết minh chuyên biệt (giữ nguyên logic cũ, tinh chỉnh) ---
         # Dự phòng
@@ -420,14 +480,33 @@ class TableRetriever:
             text = chi_tieu_cache.get(p, "")
             bonus = self._path_bonus(query_tokens, p, question=question)
 
+            # Exact Indicator Match: giảm từ 15.0 -> 6.0 để tránh lấn át Core BCTC
             if p in exact_match_paths:
-                bonus += 15.0
+                bonus += 6.0
 
             hits = sum(1 for t in query_tokens if t in text)
             if query_tokens and hits == len(set(query_tokens)):
                 bonus += 6.0
             elif hits >= max(2, len(set(query_tokens)) // 2):
                 bonus += 2.0
+
+            # Scope Routing: separate / consolidated bonus+penalty
+            p_lower = p.lower()
+            q_lower_scope = question.lower()
+            need_separate = "công ty mẹ" in q_lower_scope or "báo cáo riêng" in q_lower_scope
+            need_consolidated = "hợp nhất" in q_lower_scope or "toàn tập đoàn" in q_lower_scope
+
+            if need_separate:
+                if "separate" in p_lower:
+                    bonus += 10.0
+                elif "consolidated" in p_lower or "_aggregated" in p_lower:
+                    bonus -= 10.0
+            elif need_consolidated:
+                if "consolidated" in p_lower or "_aggregated" in p_lower:
+                    bonus += 10.0
+                elif "separate" in p_lower:
+                    bonus -= 10.0
+
             scored.append((p, float(score) + bonus))
         ranked = sorted(scored, key=lambda x: x[1], reverse=True)
         return [p for p, _ in ranked[:top_k]]
@@ -448,9 +527,10 @@ class TableRetriever:
         - 1 Ticker, 1 Year: Trả về 1 bảng tốt nhất (hoặc 2 nếu câu tỷ số).
         - Multi-Year: Trả về đúng 1 bảng/năm.
         - Multi-Ticker: Trả về đúng 1 bảng/ticker.
+        Scope Routing (separate/consolidated) được xử lý bên trong _bm25_rank bằng
+        bonus/penalty thay vì lọc cứng, để tránh mất file khi không tồn tại bản mong muốn.
         """
         _, _, tickers, years = self.extract_all_entities(question)
-        report_type = self._detect_report_type(question)
         q_lower = question.lower()
 
         if not os.path.exists(self.csv_dir) or not os.listdir(self.csv_dir):
@@ -464,7 +544,6 @@ class TableRetriever:
         # TH1: Multi-company hoặc Multi-year -> Lấy đúng 1 bảng/thực thể
         is_multi = len(tickers) > 1 or len(years) > 1
         if is_multi:
-            effective_report_type = report_type if report_type else "consolidated"
             target_tickers = tickers if tickers else [None]
             target_years = years if years else [None]
             gathered_paths = []
@@ -484,9 +563,6 @@ class TableRetriever:
                         matching = glob.glob(f"{self.csv_dir}/*/*_{y}_*.csv")
 
                     matching = [f.replace("\\", "/") for f in matching]
-                    filtered = [f for f in matching if effective_report_type in f]
-                    if filtered:
-                        matching = filtered
 
                     if matching:
                         best = self._bm25_rank(question, matching, top_k=per_entity_k)
@@ -516,11 +592,6 @@ class TableRetriever:
             return []
 
         matching = [f.replace("\\", "/") for f in matching]
-
-        if report_type:
-            filtered = [f for f in matching if report_type in f]
-            if filtered:
-                matching = filtered
 
         if top_k is not None:
             effective_k = top_k
