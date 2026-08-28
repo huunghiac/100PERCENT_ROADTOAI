@@ -72,32 +72,42 @@ def _safe_df_fallback(dfs: dict, expected_ans: float = None) -> str:
     return "float(0.0)"
 
 
+def _make_inlined_repl(replacement_text: str):
+    """Tạo hàm callable thay thế an toàn cho re.sub, không kích hoạt lỗi parse template escape."""
+    def _repl(_match):
+        return f"({replacement_text})"
+    return _repl
+
+
 def _inline_script_variables(code: str) -> str:
     """Inline các biến phụ (m, val, answer) trong script nhiều dòng thành 1 biểu thức."""
-    lines = [ln.strip() for ln in code.split("\n") if ln.strip() and not ln.strip().startswith("#")]
-    vars_map = {}
-    last_expr = ""
+    try:
+        lines = [ln.strip() for ln in code.split("\n") if ln.strip() and not ln.strip().startswith("#")]
+        vars_map = {}
+        last_expr = ""
 
-    for line in lines:
-        if line.startswith("print(") and line.endswith(")"):
-            inner = line[6:-1].strip()
-            last_expr = inner
-            continue
-        if "=" in line and not line.startswith("if "):
-            parts = line.split("=", 1)
-            var_name = parts[0].strip()
-            var_val = parts[1].strip()
-            for k, v in vars_map.items():
-                var_val = re.sub(rf'\b{re.escape(k)}\b', f"({v})", var_val)
-            vars_map[var_name] = var_val
-            last_expr = var_val
+        for line in lines:
+            if line.startswith("print(") and line.endswith(")"):
+                inner = line[6:-1].strip()
+                last_expr = inner
+                continue
+            if "=" in line and not line.startswith("if "):
+                parts = line.split("=", 1)
+                var_name = parts[0].strip()
+                var_val = parts[1].strip()
+                for k, v in vars_map.items():
+                    var_val = re.sub(rf'\b{re.escape(k)}\b', _make_inlined_repl(v), var_val)
+                vars_map[var_name] = var_val
+                last_expr = var_val
 
-    for k, v in vars_map.items():
-        last_expr = re.sub(rf'\b{re.escape(k)}\b', f"({v})", last_expr)
+        for k, v in vars_map.items():
+            last_expr = re.sub(rf'\b{re.escape(k)}\b', _make_inlined_repl(v), last_expr)
 
-    last_expr = re.sub(r'float\(\((df\d+.*?)\)\)', r'float(\1)', last_expr)
-    last_expr = re.sub(r'\(\((df\d+.*?)\)\)', r'(\1)', last_expr)
-    return last_expr.strip()
+        last_expr = re.sub(r'float\(\((df\d+.*?)\)\)', r'float(\1)', last_expr)
+        last_expr = re.sub(r'\(\((df\d+.*?)\)\)', r'(\1)', last_expr)
+        return last_expr.strip()
+    except Exception:
+        return ""
 
 
 

@@ -74,6 +74,22 @@ def test_fallback_constant():
     print(f"  PASS test_fallback_constant -> {result}")
 
 
+def test_unicode_escape_in_script():
+    """Kiểm tra script chứa escape sequence \\u không làm sập converter do lỗi regex template."""
+    df1 = pd.DataFrame({"Chi_tieu": ["Thù lao HĐQT"], "Gia_tri": [5000000.0]})
+    code = (
+        "m = df1[df1['Chi_tieu'].str.contains(r'thu lao h\\u1eafu d\\u1ea1ng', case=False, na=False)]\n"
+        "val = float(m.iloc[0]['Gia_tri'])\n"
+        "answer = val / 1_000_000\n"
+        "print(answer)"
+    )
+    result = convert_script_to_expression(code, {"df1": df1}, 5.0)
+    assert "\n" not in result
+    assert "lambda" not in result
+    print(f"  PASS test_unicode_escape_in_script -> {result}")
+
+
+
 if __name__ == "__main__":
     print("=== Testing query_formatter ===")
     test_already_valid()
