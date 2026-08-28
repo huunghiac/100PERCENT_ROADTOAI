@@ -1,118 +1,93 @@
-# Implementation Plan - ViFinQA Pipeline Optimization & Bug Fixes
+# KẾ HOẠCH TRIỂN KHAI TỐI ƯU HÓA PIPELINE VIFINQA (DYNAMIC TOP-K & TARGETED RETRIEVAL)
 
-## 1. Overview
-Khắc phục toàn bộ các lỗi làm tụt điểm hệ thống ViFinQA (bug rỗng `relevant_tables`, cú pháp `lambda` bị sandbox BTC chặn, lệch `relevant_docs`, lỗi `float(nan)`, thiếu 512 câu) để tối đa hóa điểm số trên cả 5 tiêu chí đánh giá của Ban Tổ Chức (`TABLES_F2MACRO`, `DOCS_F2MACRO`, `EXECUTION_ACCURACY`, `ANSWER_ACCURACY`, `TABLES/DOCS_PRECISION/RECALL`).
+## I. TỔNG QUAN HIỆN TRẠNG & PHÂN TÍCH 1012 CÂU HỎI
 
----
+### 1. Phân bố 1012 câu hỏi thực tế
+- **Đơn Ticker, Đơn Năm (44.5% - 450 câu)**: Chỉ tiêu đơn lẻ trong 1 báo cáo tài chính.
+- **1 Ticker, Đa Năm (28.0% - 283 câu)**: Tăng trưởng, biến động, so sánh qua các năm (ví dụ: VHM 2018-2022).
+- **Đa Ticker, Đơn Năm (20.4% - 206 câu)**: So sánh giữa các công ty trong cùng năm (ví dụ: SSI, HCM, VND năm 2021).
+- **Đa Ticker, Đa Năm (7.2% - 73 câu)**: So sánh phức hợp nhiều công ty qua nhiều thời kỳ.
 
-## 2. Phân Tích Hiện Trạng & Nguyên Nhân Gốc Rễ
-
-| Tiêu chí | Điểm BTC (500 câu) | Điểm quy đổi (nếu đủ 1012 câu) | Nguyên nhân gốc rễ |
-| :--- | :--- | :--- | :--- |
-| **TABLES_F2MACRO** | **0.0248 (2.48%)** | ~5.0% | **432/500 câu (86.4%) bị rỗng `relevant_tables: []`** do bug dòng 287 `pipeline.py`: so khớp `doc_part in bn` (`VJC_financial_statements_2018_separate` in `VJC_2018_...csv`) luôn `False`. |
-| **EXECUTION_ACCURACY** | **0.0791 (7.91%)** | ~16.0% | **51.4% query chứa `lambda`** và **36.8% query là `float(hằng số)`**. Sandbox BTC cấm `lambda` qua bộ kiểm tra AST; `float(hằng số)` bị coi là không truy vấn DataFrame. Lỗi `float(nan)` gây `NameError`. |
-| **DOCS_F2MACRO** | **0.4271 (42.71%)** | **~85.4%** | Khâu Entity Retrieval rất tốt nhưng `relevant_docs` không được prune đồng bộ khi prune `evidence` (ví dụ câu 500 nộp thừa 3 docs không dùng làm giảm `DOCS_PRECISION`). |
-| **ANSWER_ACCURACY** | **0.0810 (8.10%)** | ~16.4% | 131/500 câu rơi vào Fallback do Agent không thử sang bảng `df2` khi `df1` không có chỉ tiêu; một số bảng thuyết minh sai lệch tỷ lệ đơn vị. |
-| **COVERAGE** | **500 / 1012 câu** | 49.4% | Thiếu 512 câu làm mất tự động 50.6% tổng điểm toàn bài. |
+### 2. Các điểm nghẽn đã xác định
+- **Top-K cố định gây nhiễu**: Gán cứng `top_k=2` khiến câu đa năm (4 năm) lấy tới 8 bảng gây tràn prompt, trong khi câu đơn lại bị thừa 1 bảng rác làm giảm `TABLES_PRECISION`.
+- **BM25 nhầm lẫn giữa Báo cáo chính và Thuyết minh**: BM25 đếm token đơn lẻ khiến bảng Thuyết minh (nhiều từ lặp) vượt điểm bảng Báo cáo chính (CĐKT/KQKD/LCTT) chứa chỉ tiêu gốc.
+- **Lệch bảng dẫn đến sai đáp số**: Khi Retriever chọn sai bảng, Agent cố gắng đoán hoặc fallback, làm giảm cả `TABLES_F2MACRO` và `ANSWER_ACCURACY`.
 
 ---
 
-## 3. Types
-Cấu trúc dữ liệu cho từng câu hỏi trong `submission.json` tuân thủ 100% schema Ban Tổ Chức:
-```python
-from typing import TypedDict, List
+## II. THIẾT KẾ KIẾN TRÚC CẢI TIẾN
 
-class EvidenceItem(TypedDict):
-    variable: str    # "df1", "df2", ...
-    csv_path: str    # "data/<filename>.csv"
+### 1. `src/retriever.py`: Bộ định tuyến thông minh & Dynamic Top-K (3 Tầng)
 
-class SubmissionItem(TypedDict):
-    id: int                              # 1 .. 1012
-    question: str                        # Nội dung câu hỏi gốc
-    answer: float                        # Giá trị số thực (float/int)
-    relevant_docs: List[str]             # ["<doc_id>"]
-    relevant_tables: List[str]           # ["<doc_id>|<1-based line_number>"]
-    evidence: List[EvidenceItem]         # [{"variable": "df1", "csv_path": "data/..."}]
-    pandas_query: str                    # Biểu thức pandas 1 dòng thực thi được
-```
+#### Tầng 1: Exact Indicator Match (Khớp cụm từ chỉ tiêu trực tiếp)
+- Trích xuất cụm từ chỉ tiêu sau khi loại bỏ Ticker, Năm, Stopwords.
+- Quét nhanh trong cache cột `Chi_tieu` của toàn bộ CSV thuộc Ticker + Năm.
+- Nếu tìm thấy bảng chứa chính xác cụm từ chỉ tiêu (hoặc chuỗi con độ dài >= 6 ký tự) $\rightarrow$ Boost điểm cực đại (+15.0), đưa thẳng lên Top 1.
 
----
+#### Tầng 2: Core Financial Statement Prioritizer (Ưu tiên Báo cáo chính)
+- Nhận diện chỉ tiêu vĩ mô kinh điển:
+  - **KQKD**: Doanh thu thuần, Lợi nhuận gộp, Lợi nhuận sau thuế, Chi phí tài chính, Chi phí bán hàng, Chi phí QLDN, Lãi cơ bản trên cổ phiếu (EPS).
+  - **CĐKT**: Tổng tài sản, Nợ phải trả, Vốn chủ sở hữu, Tiền và tương đương tiền, Hàng tồn kho, Phải thu ngắn hạn, Vay ngắn hạn/dài hạn, Vốn cổ phần.
+  - **LCTT**: Lưu chuyển tiền thuần từ hoạt động kinh doanh/đầu tư/tài chính.
+- Khi gặp các chỉ tiêu này, ưu tiên tuyệt đối file `BangCanDoiKeToan`, `BaoCaoKetQuaKinhDoanh`, `BaoCaoLuuChuyenTienTe` thay vì các bảng thuyết minh lẻ.
 
-## 4. Files To Modify & Create
-
-### Existing files to modify:
-1. `src/pipeline.py`
-   - Sửa hàm `_build_submission_fields`: liên kết đồng bộ bộ 4 `(var_name, csv_path, doc_id, table_entry)`.
-   - Sửa khối Prune: dùng chỉ số biến (`df1`, `df2`) để lọc đồng thời cả 3 trường `evidence`, `relevant_tables`, và `relevant_docs`. Loại bỏ chuỗi so khớp `doc_part in bn`.
-   - Loại bỏ import và lời gọi `_safe_wrap_expr`.
-
-2. `src/query_formatter.py`
-   - Xóa bỏ hoàn toàn hàm `_safe_wrap_expr` (không dùng `lambda`).
-   - Cập nhật `convert_script_to_expression`:
-     - Chuyển `dfX[...str.contains...]['Gia_tri'].iloc[0]` thành biểu thức trực tiếp chuẩn Pandas.
-     - Khi fallback không tìm thấy chỉ tiêu: trả về `float(df1.iloc[0]['Gia_tri'])` (luôn tham chiếu DataFrame) thay vì `float(0.0)` hoặc `float(nan)`.
-     - Thay thế triệt để `nan`/`inf` thành `0.0`.
-
-3. `src/agent.py`
-   - Bổ sung hướng dẫn tìm kiếm đa bảng trong prompt: nếu `df1` không có chỉ tiêu, chuyển sang tìm ở `df2`.
-   - Bổ sung ví dụ truy vấn `df2` khi `df1` không khớp.
-
-4. `src/fallback.py`
-   - Chuẩn hóa `pandas_query` sinh ra từ `try_rule_based_answer` về định dạng `float(df{var}.iloc[{row}]['Gia_tri']) / scale`.
-
-5. `tests/test_submission_eval.py`
-   - Bổ sung kiểm tra không chứa `lambda` trong query.
-   - Bổ sung kiểm tra `relevant_tables` không được rỗng khi có `evidence`.
-   - Bổ sung kiểm tra đồng bộ `relevant_docs` với `evidence`.
-
-### New files:
-1. `tests/test_fix_validation.py`
-   - File test độc lập kiểm tra: Pruning 3 trường, Format biểu thức Pandas (no lambda), và kiểm tra trên mẫu câu hỏi thực tế của `submission500.json`.
-
+#### Tầng 3: Intent-Aware Adaptive Dynamic Top-K
+- **Đơn Ticker, Đơn Năm**:
+  - Có Exact Match hoặc BM25 score top 1 vượt trội (margin > 30% so với top 2): Trả về đúng **1 bảng** (`top_k=1`).
+  - Câu hỏi Tỷ số tài chính (ROE, ROA, Biên LN, Đòn bẩy, D/E): Lấy đúng **2 bảng** (1 KQKD + 1 CĐKT).
+  - BM25 phân vân (margin <= 30%): Trả về **2 bảng** (`top_k=2`).
+- **1 Ticker, Đa Năm ($N$ năm)**:
+  - Xác định loại báo cáo phù hợp (ví dụ: KQKD).
+  - Lấy đúng **1 bảng cùng loại tốt nhất cho MỖI năm** $\rightarrow$ Tổng trả về đúng $N$ bảng (`df1`..`dfN`).
+- **Đa Ticker ($M$ tickers), Đơn Năm**:
+  - Xác định loại báo cáo phù hợp.
+  - Lấy đúng **1 bảng cùng loại tốt nhất cho MỖI ticker** $\rightarrow$ Tổng trả về đúng $M$ bảng.
+- **Đa Ticker, Đa Năm**:
+  - Lấy đúng **1 bảng cùng loại cho mỗi cặp (Ticker, Năm)**.
 
 ---
 
-## 5. Functions Modification Details
-
-### `src/pipeline.py`
-- **`_build_submission_fields(csv_paths: list, manifest: dict, retriever=None)`**
-  - Trả về danh sách `items` chứa metadata đồng bộ theo từng DataFrame (`df1`, `df2`...):
-    - `var_name`: `df1`, `df2`
-    - `var_num`: `1`, `2`
-    - `evidence`: `{"variable": "df1", "csv_path": "data/<filename>.csv"}`
-    - `doc_id`: mã document
-    - `table_entry`: `<doc_id>|<source_line_number>`
-- **Khối Prune trong `run_full_pipeline`**
-  - Quét danh sách biến thực tế trong `final_query` (`re.findall(r'\bdf(\d+)\b', final_query)`).
-  - Lọc đồng bộ cả 3 trường `evidence`, `relevant_tables`, `relevant_docs` chỉ giữ lại các thành phần tương ứng với các biến `dfX` thực sự được sử dụng.
-
-### `src/query_formatter.py`
-- **`convert_script_to_expression(code: str, dfs: dict, expected_ans: float = 0.0) -> str`**
-  - Chuyển mã sang biểu thức thuần Pandas: `float(df1[df1['Chi_tieu'].str.contains(r'...', case=False, na=False)]['Gia_tri'].iloc[0]) / scale`.
-  - Fallback an toàn: `float(df1.iloc[0]['Gia_tri'])` (luôn tham chiếu DataFrame thực tế, không trả hằng số trần).
-- **`_safe_wrap_expr`**: Xóa bỏ hoàn toàn hàm này (loại bỏ `lambda`).
+### 2. `src/agent.py`: Nâng cấp Prompt & Code Generator cho Đa DataFrames
+- **Nhận diện ngữ cảnh động**: Cung cấp mô tả biến DataFrame rõ ràng trong Prompt:
+  - `df1: [Ticker A - Năm 2021 - Báo cáo X]`
+  - `df2: [Ticker A - Năm 2022 - Báo cáo X]`
+- **Hỗ trợ biểu thức tính toán liên bảng**:
+  - Công thức tăng trưởng: `(float(df2[...]...['Gia_tri'].iloc[0]) - float(df1[...]...['Gia_tri'].iloc[0])) / float(df1[...]...['Gia_tri'].iloc[0]) * 100`
+  - Công thức tỷ số: `float(df1[...]...['Gia_tri'].iloc[0]) / float(df2[...]...['Gia_tri'].iloc[0])`
+- **Chống lỗi gãy biểu thức AST**:
+  - Đảm bảo cú pháp Python hợp lệ 100%, không lambda, không hàm ngoài built-in/pandas.
 
 ---
 
-## 6. Testing & Validation Strategy
-
-1. **Unit Test (`tests/test_fix_validation.py`)**:
-   - Kiểm tra 100% câu hỏi có `len(relevant_tables) > 0` tương ứng với evidence.
-   - Kiểm tra `relevant_docs` khớp đúng với các bảng được sử dụng.
-   - Kiểm tra không còn từ khóa `lambda` nào trong `pandas_query`.
-   - Kiểm tra `eval()` query trên DataFrames thực tế không bị `NameError`, `SyntaxError`, `IndexError`.
-2. **Offline Simulation Test (`tests/test_submission_eval.py`)**:
-   - Kiểm tra trên toàn bộ câu hỏi:
-     - `Relevant Tables Format Hợp Lệ`: Kỳ vọng **100%**.
-     - `Execution Accuracy`: Kỳ vọng **> 98%**.
+### 3. `src/pipeline.py` & `src/query_formatter.py`: Đồng bộ Pruning & Fallback
+- **Pruning chuẩn xác**:
+  - Regex trích xuất tất cả `df\d+` xuất hiện trong `pandas_query`.
+  - Giữ lại đúng các bảng và doc_ids tương ứng trong `relevant_tables` và `relevant_docs`.
+  - Bảng nào không được dùng để tính kết quả sẽ tự động bị loại khỏi danh sách nộp.
+- **Fallback an toàn**:
+  - Nếu Agent fail cả 2 lần: Fallback tự động trích xuất dòng khớp tốt nhất trên `df1` và sinh query hợp lệ `float(df1[...]['Gia_tri'].iloc[0])`.
 
 ---
 
-## 7. Implementation Steps Order
+## III. KẾ HOẠCH THỰC HIỆN & KIỂM THỬ
 
-1. **Bước 1**: Cập nhật `src/query_formatter.py` (loại bỏ `_safe_wrap_expr`, chuẩn hóa expression thuần và fallback tham chiếu DataFrame).
-2. **Bước 2**: Cập nhật `src/pipeline.py` (sửa `_build_submission_fields` và logic Prune đồng bộ 3 trường `evidence`, `relevant_tables`, `relevant_docs`).
-3. **Bước 3**: Cập nhật `src/agent.py` (bổ sung prompt tra cứu đa bảng `df1` -> `df2`).
-4. **Bước 4**: Cập nhật `src/fallback.py` (chuẩn hóa query fallback).
-5. **Bước 5**: Viết và chạy `tests/test_fix_validation.py` kiểm tra kiểm thử.
-6. **Bước 6**: Chạy lại `tests/test_submission_eval.py` xác nhận chỉ số mô phỏng đạt chuẩn.
+### Bước 1: Triển khai cải tiến `src/retriever.py`
+- Tích hợp Exact Indicator Match + Core Financial Statement Priority.
+- Cài đặt cơ chế Dynamic Adaptive Top-K.
+
+### Bước 2: Triển khai cập nhật `src/agent.py` & `src/pipeline.py`
+- Cập nhật prompt template hỗ trợ linh hoạt 1 đến $N$ DataFrames.
+- Kiểm tra tính tương thích của AST validator và Pruning module.
+
+### Bước 3: Kiểm thử toàn diện trên bộ Test Suite
+- Chạy unit tests: `tests/test_fix_validation.py`, `tests/test_pipeline_prune.py`.
+- Viết test suite chuyên biệt `tests/test_retriever_dynamic.py` kiểm tra:
+  - 10 câu đơn ticker/năm (kết quả phải trả về 1 bảng chính xác).
+  - 10 câu đa năm (trả về đúng 1 bảng/năm).
+  - 10 câu đa ticker (trả về đúng 1 bảng/ticker).
+  - 10 câu tỷ số (trả về đúng 1 KQKD + 1 CĐKT).
+
+### Bước 4: Chạy End-to-End Pipeline & Đóng gói
+- Chạy pipeline trên toàn bộ 1012 câu hỏi.
+- Validate `submission.json` qua `tests/test_submission_eval.py`.
+- Đóng gói file nộp bài `submission.zip`.

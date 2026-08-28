@@ -65,6 +65,7 @@ class TableRetriever:
 
     def _build_name_index(self):
         seen = {}
+        # 1. Từ manifest
         for entry in self.manifest.values():
             ticker = entry.get("ticker", "")
             name = entry.get("company_name", "")
@@ -73,6 +74,29 @@ class TableRetriever:
                 if ticker not in seen:
                     seen[ticker] = set()
                 seen[ticker].add(name)
+
+        # 2. Từ code_stock.csv nếu có
+        for cs_path in ["data/raw_vifinqa/code_stock.csv", "data/code_stock.csv"]:
+            if os.path.exists(cs_path):
+                try:
+                    df_cs = pd.read_csv(cs_path)
+                    for _, row in df_cs.iterrows():
+                        tk = str(row.iloc[0]).strip()
+                        nm = str(row.iloc[1]).strip()
+                        if tk and nm:
+                            self.ticker_set.add(tk)
+                            if tk not in seen:
+                                seen[tk] = set()
+                            seen[tk].add(nm)
+                except Exception:
+                    pass
+
+        # 3. Từ tên folder trong csv_dir
+        if os.path.exists(self.csv_dir):
+            for d in os.listdir(self.csv_dir):
+                if os.path.isdir(os.path.join(self.csv_dir, d)) and len(d) in [3, 4] and d.isupper():
+                    self.ticker_set.add(d)
+
         for ticker, names in seen.items():
             for raw_name in names:
                 self.name_to_ticker[self._normalize_name(raw_name)] = ticker
@@ -212,7 +236,8 @@ class TableRetriever:
         "của", "cho", "và", "vào", "cuối", "trong", "năm", "là", "bao", "nhiêu",
         "đồng", "triệu", "tỷ", "nghìn", "ngày", "tháng", "đến", "tại", "với",
         "công", "ty", "ctcp", "tnhh", "tmcp", "ngân", "hàng", "tổng", "tập", "đoàn",
-        "mẹ", "hợp", "nhất", "riêng", "báo", "cáo", "đơn", "vị",
+        "mẹ", "hợp", "nhất", "riêng", "báo", "cáo", "đơn", "vị", "hội", "đồng", "quản", "trị",
+        "thành", "viên", "ông", "bà", "tổng", "giám", "đốc",
     }
 
     def _tokenize(self, text: str) -> list:
@@ -232,13 +257,19 @@ class TableRetriever:
         tokens = [t for t in self._tokenize(q) if t not in self._QUESTION_STOPWORDS and len(t) > 1]
         return tokens or self._tokenize(question)
 
-    def _path_bonus(self, question_tokens: list, path: str) -> float:
+    def _extract_query_phrase(self, question: str) -> str:
+        """Trích xuất cụm từ khóa chỉ tiêu chính."""
+        tokens = self._clean_query_tokens(question)
+        return " ".join(tokens)
+
+    def _path_bonus(self, question_tokens: list, path: str, question: str = "") -> float:
         """
         Boost điểm BM25 dựa trên ý định câu hỏi vs loại báo cáo trong tên file CSV.
-        3 nhóm chính: KQKD, LCTT, CĐKT + các nhóm thuyết minh chuyên biệt.
+        Ưu tiên Báo Cáo Tài Chính Chính (KQKD/CĐKT/LCTT) cho các chỉ tiêu cốt lõi.
         """
         p = path.lower()
         qt = set(question_tokens)
+        q_raw = question.lower() if question else " ".join(question_tokens)
         bonus = 0.0
 
         # --- Detect loại báo cáo trong filename ---
@@ -248,57 +279,49 @@ class TableRetriever:
 
         # --- KQKD: doanh thu, lợi nhuận, chi phí tài chính, chi phí bán hàng, EPS ---
         kqkd_signal = False
-        if {"doanh", "thu"} <= qt:
-            kqkd_signal = True
-        if {"lợi", "nhuận"} & qt:
+        if "doanh thu" in q_raw or "lợi nhuận" in q_raw or "lãi gộp" in q_raw or "lỗ thuần" in q_raw:
             kqkd_signal = True
         if "eps" in qt or {"lãi", "cổ", "phiếu"} <= qt:
             kqkd_signal = True
-        if {"chi", "phí"} <= qt and {"tài", "chính"} <= qt:
-            kqkd_signal = True
-        if {"chi", "phí"} <= qt and {"bán", "hàng"} <= qt:
+        if {"chi", "phí"} <= qt and ({"tài", "chính"} <= qt or {"bán", "hàng"} <= qt):
             kqkd_signal = True
         if {"giá", "vốn"} <= qt and {"hàng", "bán"} <= qt:
             kqkd_signal = True
+        if "thu nhập lãi thuần" in q_raw or "thu nhập hoạt động" in q_raw:
+            kqkd_signal = True
         if kqkd_signal and is_kqkd:
-            bonus += 5.0
+            bonus += 7.0
         # Penalty: câu KQKD mà file là LCTT
         if kqkd_signal and is_lctt and not is_kqkd:
-            bonus -= 2.0
+            bonus -= 3.0
 
         # --- LCTT: lưu chuyển tiền, dòng tiền ---
         lctt_signal = False
-        if {"lưu", "chuyển"} <= qt or "luuchuyen" in qt:
+        if "lưu chuyển" in q_raw or "luuchuyen" in q_raw or "dòng tiền" in q_raw:
             lctt_signal = True
-        if {"dòng", "tiền"} <= qt:
+        if "tiền thuần từ" in q_raw:
             lctt_signal = True
         if lctt_signal and is_lctt:
-            bonus += 6.0
+            bonus += 8.0
         # Penalty: câu LCTT mà file là KQKD/CĐKT
         if lctt_signal and not is_lctt:
-            bonus -= 2.0
+            bonus -= 3.0
 
         # --- CĐKT: tổng tài sản, nợ, vốn chủ sở hữu, hàng tồn kho, phải thu/trả ---
         cdkt_signal = False
-        if {"tổng", "tài", "sản"} <= qt:
+        if "tổng tài sản" in q_raw or "vốn chủ sở hữu" in q_raw or "vốn cổ phần" in q_raw:
             cdkt_signal = True
-        if {"tổng", "nợ"} <= qt or {"nợ", "phải", "trả"} <= qt:
+        if "nợ phải trả" in q_raw or "tổng nợ" in q_raw or "hàng tồn kho" in q_raw:
             cdkt_signal = True
-        if {"vốn", "chủ"} <= qt or {"vốn", "sở"} <= qt:
+        if "phải thu" in q_raw or "phải trả" in q_raw or "tiền và tương đương" in q_raw:
             cdkt_signal = True
-        if {"hàng", "tồn", "kho"} <= qt:
-            cdkt_signal = True
-        if {"phải", "thu"} <= qt and {"khách", "hàng"} <= qt:
-            cdkt_signal = True
-        if {"phải", "trả"} <= qt and {"người", "bán"} <= qt:
-            cdkt_signal = True
-        if {"tiền", "mặt"} <= qt or ({"tiền", "tương", "đương"} <= qt):
+        if "tiền gửi tại" in q_raw or "vay ngắn hạn" in q_raw or "vay dài hạn" in q_raw:
             cdkt_signal = True
         if cdkt_signal and is_cdkt:
-            bonus += 5.0
+            bonus += 7.0
         # Penalty: câu CĐKT mà file là LCTT
         if cdkt_signal and is_lctt and not is_cdkt:
-            bonus -= 2.0
+            bonus -= 3.0
 
         # --- Thuyết minh chuyên biệt (giữ nguyên logic cũ, tinh chỉnh) ---
         # Dự phòng
@@ -344,14 +367,19 @@ class TableRetriever:
 
         return bonus
 
-    def _bm25_rank(self, question: str, csv_paths: list, top_k: int) -> list:
-        """Xếp hạng csv_paths theo BM25 đã clean query + boost nội dung Chi_tieu."""
+    def _bm25_rank(self, question: str, csv_paths: list, top_k: int = 2) -> list:
+        """Xếp hạng csv_paths kết hợp Exact Indicator Match + Core Statement + BM25."""
         if not csv_paths:
             return []
         query_tokens = self._clean_query_tokens(question)
+        query_phrase = self._extract_query_phrase(question)
+        q_raw_clean = re.sub(r'[^\w\s]', '', question.lower())
+
         corpus_tokens = []
         valid_paths = []
         chi_tieu_cache = {}
+        exact_match_paths = []
+
         for p in csv_paths:
             entry = self.manifest.get(p, {})
             metadata = " ".join([
@@ -364,12 +392,19 @@ class TableRetriever:
             if os.path.exists(real_path):
                 try:
                     df = pd.read_csv(real_path, usecols=["Chi_tieu"])
-                    values = df["Chi_tieu"].dropna().astype(str).tolist()
+                    values = [str(x) for x in df["Chi_tieu"].dropna().tolist()]
                     chi_tieu_text = " ".join(values)
-                    chi_tieu_cache[p] = " ".join(values).lower()
+                    chi_tieu_cache[p] = chi_tieu_text.lower()
+
+                    for val in values:
+                        val_clean = re.sub(r'[^\w\s]', '', str(val).lower()).strip()
+                        if len(val_clean) >= 6 and (val_clean in q_raw_clean or (query_phrase and query_phrase in val_clean)):
+                            if p not in exact_match_paths:
+                                exact_match_paths.append(p)
+                            break
                 except Exception:
                     chi_tieu_cache[p] = ""
-            # Chi_tieu weighted higher than metadata because user asks about indicators.
+
             doc = f"{metadata} {chi_tieu_text} {chi_tieu_text} {chi_tieu_text}"
             tokens = self._tokenize(doc)
             if tokens:
@@ -383,7 +418,11 @@ class TableRetriever:
         scored = []
         for p, score in zip(valid_paths, base_scores):
             text = chi_tieu_cache.get(p, "")
-            bonus = self._path_bonus(query_tokens, p)
+            bonus = self._path_bonus(query_tokens, p, question=question)
+
+            if p in exact_match_paths:
+                bonus += 15.0
+
             hits = sum(1 for t in query_tokens if t in text)
             if query_tokens and hits == len(set(query_tokens)):
                 bonus += 6.0
@@ -405,33 +444,32 @@ class TableRetriever:
     def retrieve(self, question: str, top_k: int = None) -> list:
         """
         Đầu vào: Câu hỏi tiếng Việt.
-        Đầu ra: Danh sách đường dẫn CSV (dynamic / adaptive).
-        - Nếu 1 ticker, 1 năm: trả về top 1-2 bảng chính xác nhất (tránh nhiễu context).
-        - Nếu nhiều ticker hoặc nhiều năm (multi-year/multi-company): tự động lấy top bảng cho từng thực thể.
+        Đầu ra: Danh sách đường dẫn CSV thích ứng (Dynamic Adaptive Top-K).
+        - 1 Ticker, 1 Year: Trả về 1 bảng tốt nhất (hoặc 2 nếu câu tỷ số).
+        - Multi-Year: Trả về đúng 1 bảng/năm.
+        - Multi-Ticker: Trả về đúng 1 bảng/ticker.
         """
         _, _, tickers, years = self.extract_all_entities(question)
         report_type = self._detect_report_type(question)
+        q_lower = question.lower()
 
         if not os.path.exists(self.csv_dir) or not os.listdir(self.csv_dir):
             print(f"[Retriever] WARNING: csv_dir '{self.csv_dir}' empty or missing.")
             return []
 
-        # TH1: Multi-company hoặc Multi-year -> Dynamic gather
+        _ratio_keywords = {"hệ số", "tỷ số", "tỉ số", "biên lợi nhuận", "biên ln", "biên gộp",
+                           "đòn bẩy", "roe", "roa", "ros", "nim", "cir", "npl", "d/e"}
+        is_ratio = any(kw in q_lower for kw in _ratio_keywords)
+
+        # TH1: Multi-company hoặc Multi-year -> Lấy đúng 1 bảng/thực thể
         is_multi = len(tickers) > 1 or len(years) > 1
         if is_multi:
-            # Fix 4: default consolidated cho câu multi (so sánh nhóm = hợp nhất)
             effective_report_type = report_type if report_type else "consolidated"
-
-            # Fix 3: câu hỏi cần nhiều loại báo cáo (tỷ số, hệ số, biên) → lấy 2 bảng/cặp
-            q_lower = question.lower()
-            _ratio_keywords = {"hệ số", "tỷ số", "biên lợi nhuận", "biên gộp",
-                               "thanh toán", "khả năng", "d/e", "roe", "roa"}
-            needs_multi_report = any(kw in q_lower for kw in _ratio_keywords)
-            per_pair_k = 2 if needs_multi_report else 1
-
             target_tickers = tickers if tickers else [None]
             target_years = years if years else [None]
             gathered_paths = []
+
+            per_entity_k = 2 if is_ratio else 1
 
             for t in target_tickers:
                 for y in target_years:
@@ -451,16 +489,16 @@ class TableRetriever:
                         matching = filtered
 
                     if matching:
-                        best = self._bm25_rank(question, matching, top_k=per_pair_k)
+                        best = self._bm25_rank(question, matching, top_k=per_entity_k)
                         for p in best:
                             if p not in gathered_paths:
                                 gathered_paths.append(p)
 
             if gathered_paths:
-                max_k = top_k if top_k is not None else 20
+                max_k = top_k if top_k is not None else 10
                 return gathered_paths[:max_k]
 
-        # TH2: Đơn ticker / đơn year (hoặc không nhận diện được)
+        # TH2: Đơn Ticker, Đơn Year
         ticker = tickers[0] if tickers else None
         year = years[0] if years else None
 
@@ -484,10 +522,15 @@ class TableRetriever:
             if filtered:
                 matching = filtered
 
-        # Đối với câu đơn: mặc định top_k = 2 (đủ 1 chính + 1 dự phòng), trừ khi có truyền top_k ngoài
-        k = top_k if top_k is not None else 2
-        ranked = self._bm25_rank(question, matching, top_k=k)
-        return ranked if ranked else matching[:k]
+        if top_k is not None:
+            effective_k = top_k
+        elif is_ratio:
+            effective_k = 2
+        else:
+            effective_k = 1
+
+        ranked = self._bm25_rank(question, matching, top_k=max(effective_k, 2))
+        return ranked[:effective_k] if ranked else matching[:effective_k]
 
 
 if __name__ == "__main__":

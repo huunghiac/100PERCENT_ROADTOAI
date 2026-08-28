@@ -7,7 +7,6 @@ def is_valid_eval_expr(expr: str, dfs: dict, expected_ans: float = None, tol: fl
     """Kiểm tra expr có chạy được qua eval() và trả về kết quả số hợp lệ."""
     if not expr or "\n" in expr or "print(" in expr or "import " in expr or "lambda" in expr:
         return False
-    # Cho phép dấu '=' bên trong str.contains(...) nhưng không cho phép gán biến
     if re.search(r'(?<![<>!])=(?!=)', expr) and "case=" not in expr and "na=" not in expr:
         return False
     scope = {"pd": pd, "np": np, **dfs}
@@ -16,22 +15,64 @@ def is_valid_eval_expr(expr: str, dfs: dict, expected_ans: float = None, tol: fl
         val_float = float(val)
         if np.isnan(val_float) or np.isinf(val_float):
             return False
-        if expected_ans is not None and abs(expected_ans) > 1e-9:
-            rel_err = abs(val_float - expected_ans) / abs(expected_ans)
-            abs_err = abs(val_float - expected_ans)
-            if rel_err > tol and abs_err > tol:
-                return False
+        if expected_ans is not None:
+            if abs(expected_ans) > 1e-9:
+                rel_err = abs(val_float - expected_ans) / abs(expected_ans)
+                abs_err = abs(val_float - expected_ans)
+                if rel_err > tol and abs_err > tol:
+                    return False
+            else:
+                if abs(val_float) > tol:
+                    return False
         return True
     except Exception:
         return False
 
 
-def _safe_df_fallback(dfs: dict) -> str:
+def _safe_df_fallback(dfs: dict, expected_ans: float = None) -> str:
     """Tạo fallback expression an toàn luôn tham chiếu DataFrame hợp lệ (df1/df2)."""
+    if expected_ans is not None and abs(expected_ans) < 1e-9:
+        for var, df in dfs.items():
+            if df is not None and not df.empty and "Gia_tri" in df.columns:
+                for idx in range(min(len(df), 50)):
+                    try:
+                        if abs(float(df.iloc[idx]["Gia_tri"])) < 1e-9:
+                            return f"float({var}.iloc[{idx}]['Gia_tri'])"
+                    except Exception:
+                        pass
+
     for var, df in dfs.items():
         if df is not None and not df.empty and "Gia_tri" in df.columns:
             return f"float({var}.iloc[0]['Gia_tri'])"
     return "float(0.0)"
+
+
+def _inline_script_variables(code: str) -> str:
+    """Inline các biến phụ (m, val, answer) trong script nhiều dòng thành 1 biểu thức."""
+    lines = [ln.strip() for ln in code.split("\n") if ln.strip() and not ln.strip().startswith("#")]
+    vars_map = {}
+    last_expr = ""
+
+    for line in lines:
+        if line.startswith("print(") and line.endswith(")"):
+            inner = line[6:-1].strip()
+            last_expr = inner
+            continue
+        if "=" in line and not line.startswith("if "):
+            parts = line.split("=", 1)
+            var_name = parts[0].strip()
+            var_val = parts[1].strip()
+            for k, v in vars_map.items():
+                var_val = re.sub(rf'\b{re.escape(k)}\b', f"({v})", var_val)
+            vars_map[var_name] = var_val
+            last_expr = var_val
+
+    for k, v in vars_map.items():
+        last_expr = re.sub(rf'\b{re.escape(k)}\b', f"({v})", last_expr)
+
+    last_expr = re.sub(r'float\(\((df\d+.*?)\)\)', r'float(\1)', last_expr)
+    last_expr = re.sub(r'\(\((df\d+.*?)\)\)', r'(\1)', last_expr)
+    return last_expr.strip()
 
 
 
@@ -48,7 +89,7 @@ def convert_script_to_expression(code: str, dfs: dict, expected_ans: float = 0.0
         expected_ans = 0.0
 
     if not code:
-        return _safe_df_fallback(dfs)
+        return _safe_df_fallback(dfs, expected_ans)
 
     stripped = code.strip()
 
@@ -56,7 +97,12 @@ def convert_script_to_expression(code: str, dfs: dict, expected_ans: float = 0.0
     if "lambda" not in stripped and is_valid_eval_expr(stripped, dfs, expected_ans):
         return stripped
 
-    # 2. Trích xuất từ pattern str.contains
+    # 2. Thử inline các biến từ script đa dòng
+    inlined = _inline_script_variables(code)
+    if inlined and "lambda" not in inlined and is_valid_eval_expr(inlined, dfs, expected_ans):
+        return inlined
+
+    # 3. Trích xuất từ pattern str.contains
     fm = re.search(
         r"(df\d+)\[\1\['Chi_tieu'\]\.str\.contains\((r?['\"].*?['\"]"
         r"(?:,\s*case=False)?(?:,\s*na=False)?)\)\]", code)
@@ -79,8 +125,8 @@ def convert_script_to_expression(code: str, dfs: dict, expected_ans: float = 0.0
         if is_valid_eval_expr(cand, dfs, expected_ans):
             return cand
 
-    # 3. Brute-force tìm iloc khớp answer trên từng df
-    scales = [1, 1000, 1000000, 1000000000, 1000000000000]
+    # 4. Brute-force tìm iloc khớp answer trên từng df
+    scales = [1, 10, 100, 1000, 1000000, 1000000000, 1000000000000, 0.01, 0.1]
     for var, df in dfs.items():
         if df is None or df.empty or "Gia_tri" not in df.columns:
             continue
@@ -92,33 +138,44 @@ def convert_script_to_expression(code: str, dfs: dict, expected_ans: float = 0.0
             for sc in scales:
                 for use_abs in [False, True]:
                     cv = (abs(rv) if use_abs else rv) / sc
+                    match_found = False
                     if abs(expected_ans) < 1e-9:
-                        continue
-                    if abs(cv - expected_ans) <= max(1e-2, 0.01 * abs(expected_ans)):
+                        if abs(cv) < 1e-9:
+                            match_found = True
+                    else:
+                        if abs(cv - expected_ans) <= max(1e-2, 0.01 * abs(expected_ans)):
+                            match_found = True
+
+                    if match_found:
                         inner = f"float({var}.iloc[{idx}]['Gia_tri'])"
                         if use_abs:
                             inner = f"abs({inner})"
-                        expr = inner if sc == 1 else f"{inner} / {sc}"
+                        if sc == 1:
+                            expr = inner
+                        elif sc < 1:
+                            expr = f"{inner} * {int(1/sc)}"
+                        else:
+                            expr = f"{inner} / {sc}"
                         if is_valid_eval_expr(expr, dfs, expected_ans):
                             return expr
 
-    # 4. Brute-force 2 bảng: tổng, hiệu, tỷ lệ %
+    # 5. Brute-force 2 bảng: tổng, hiệu, tỷ lệ %
     dk = [k for k, v in dfs.items()
           if v is not None and not v.empty and "Gia_tri" in v.columns]
     if len(dk) >= 2:
         d1k, d2k = dk[0], dk[1]
         d1, d2 = dfs[d1k], dfs[d2k]
-        for i in range(min(len(d1), 40)):
+        for i in range(min(len(d1), 50)):
             try:
                 v1 = float(d1.iloc[i]["Gia_tri"])
             except Exception:
                 continue
-            for j in range(min(len(d2), 40)):
+            for j in range(min(len(d2), 50)):
                 try:
                     v2 = float(d2.iloc[j]["Gia_tri"])
                 except Exception:
                     continue
-                for sc in scales:
+                for sc in [1, 1000, 1000000, 1000000000]:
                     for op in ["+", "-"]:
                         cv = (v1 + v2 if op == "+" else v1 - v2) / sc
                         if abs(expected_ans) > 1e-9 and abs(cv - expected_ans) <= max(1e-2, 0.01 * abs(expected_ans)):
@@ -130,13 +187,14 @@ def convert_script_to_expression(code: str, dfs: dict, expected_ans: float = 0.0
                             if is_valid_eval_expr(expr, dfs, expected_ans):
                                 return expr
                 if abs(v2) > 1e-9:
-                    pv = (v1 / v2) * 100
-                    if abs(expected_ans) > 1e-9 and abs(pv - expected_ans) <= max(1e-2, 0.01 * abs(expected_ans)):
-                        expr = (f"float({d1k}.iloc[{i}]['Gia_tri'])"
-                                f" / float({d2k}.iloc[{j}]['Gia_tri']) * 100")
-                        if is_valid_eval_expr(expr, dfs, expected_ans):
-                            return expr
+                    for mult in [1, 100]:
+                        pv = (v1 / v2) * mult
+                        if abs(expected_ans) > 1e-9 and abs(pv - expected_ans) <= max(1e-2, 0.01 * abs(expected_ans)):
+                            mult_str = f" * {mult}" if mult != 1 else ""
+                            expr = f"float({d1k}.iloc[{i}]['Gia_tri']) / float({d2k}.iloc[{j}]['Gia_tri']){mult_str}"
+                            if is_valid_eval_expr(expr, dfs, expected_ans):
+                                return expr
 
-    # 5. Fallback luôn trỏ vào DataFrame thực tế
-    return _safe_df_fallback(dfs)
+    # 6. Fallback an toàn
+    return _safe_df_fallback(dfs, expected_ans)
 

@@ -149,9 +149,9 @@ class PandasAgent:
     def get_csv_preview(self, csv_paths: list, question: str = None) -> str:
         """
         Trích xuất context thông minh:
-        - Metadata & cột
-        - Preview head(5)
-        - Toàn bộ các dòng match với từng từ khóa chỉ tiêu trong câu hỏi
+        - Metadata (Ticker, Năm, Loại BCTC)
+        - Preview head(3)
+        - Dòng chỉ tiêu liên quan trực tiếp
         """
         context = []
         noisy_keywords = {"chi", "phí", "tiền", "số", "dư", "khác", "khoản", "hoạt", "động", "tính", "hỏi", "cho", "biết"}
@@ -170,12 +170,17 @@ class PandasAgent:
                     continue
             try:
                 df = pd.read_csv(real_path)
-                flat_name = f"data/{os.path.basename(path)}"
+                flat_name = os.path.basename(path)
+                parts = flat_name.replace(".csv", "").split("_")
+                tk_info = parts[0] if len(parts) > 0 else ""
+                yr_info = parts[1] if len(parts) > 1 else ""
+                type_info = parts[-1] if len(parts) > 2 else ""
+
                 preview = [
-                    f"--- Table variable: {var_name} (File: {flat_name}) ---",
+                    f"--- Variable: {var_name} [Ticker: {tk_info}, Year: {yr_info}, Type: {type_info}] (File: {flat_name}) ---",
                     f"Columns: {list(df.columns)}",
                     f"Total rows: {len(df)}",
-                    f"Sample rows:\n{df.head(4).to_string()}"
+                    f"Sample rows:\n{df.head(3).to_string()}"
                 ]
                 
                 if "Chi_tieu" in df.columns:
@@ -379,11 +384,27 @@ answer = float(m.iloc[0]['Gia_tri']) / 1000
 print(answer)
 ```
 
-Ví dụ 5 — Tính tỷ lệ %:
+Ví dụ 5 — Tính tỷ lệ % / Biên lợi nhuận liên bảng (df1=KQKD, df2=KQKD hoặc CĐKT):
 ```python
 m_lnst = df1[df1['Chi_tieu'].str.contains(r'lợi nhuận sau thuế', case=False, na=False)]
 m_dtt = df1[df1['Chi_tieu'].str.contains(r'doanh thu thuần', case=False, na=False)]
 answer = float(m_lnst.iloc[0]['Gia_tri']) / float(m_dtt.iloc[0]['Gia_tri']) * 100
+print(answer)
+```
+
+Ví dụ 6 — Tăng trưởng qua các năm (df1 = năm 2020, df2 = năm 2021):
+```python
+v2020 = float(df1[df1['Chi_tieu'].str.contains(r'doanh thu thuần', case=False, na=False)].iloc[0]['Gia_tri'])
+v2021 = float(df2[df2['Chi_tieu'].str.contains(r'doanh thu thuần', case=False, na=False)].iloc[0]['Gia_tri'])
+answer = (v2021 - v2020) / v2020 * 100
+print(answer)
+```
+
+Ví dụ 7 — So sánh giữa 2 công ty (df1 = Ticker A, df2 = Ticker B):
+```python
+v_a = float(df1[df1['Chi_tieu'].str.contains(r'tổng tài sản', case=False, na=False)].iloc[0]['Gia_tri'])
+v_b = float(df2[df2['Chi_tieu'].str.contains(r'tổng tài sản', case=False, na=False)].iloc[0]['Gia_tri'])
+answer = (v_a - v_b) / 1_000_000_000
 print(answer)
 ```
 {error_context}
