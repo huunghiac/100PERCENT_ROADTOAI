@@ -16,6 +16,8 @@ if _SRC_DIR not in sys.path:
 
 from pipeline import _build_submission_fields, _doc_id_from_source_txt
 from query_formatter import QueryFormatError, convert_script_to_expression, is_valid_eval_expr
+from retriever import TableRetriever
+from metric_registry import DEFAULT_REGISTRY
 
 
 def test_doc_id_extraction():
@@ -68,6 +70,44 @@ def test_build_submission_fields_and_pruning():
     assert len(pruned_tables) == 1
     assert pruned_tables[0] == "VJC_financial_statements_2018_separate|35"
     print("  PASS test_build_submission_fields_and_pruning (df2 only)")
+
+
+def test_null_line_map_falls_back_to_manifest_table_index(tmp_path):
+    line_map = tmp_path / "line_map.json"
+    line_map.write_text(json.dumps({"DOC|29": None}), encoding="utf-8")
+    retriever = TableRetriever(
+        csv_dir=str(tmp_path),
+        manifest_path=str(tmp_path / "missing.jsonl"),
+        line_map_path=str(line_map),
+    )
+    assert retriever.get_source_line_number("DOC", 29) == 29
+
+
+def test_longest_company_span_suppresses_embedded_ticker(tmp_path):
+    retriever = TableRetriever(
+        csv_dir=str(tmp_path),
+        manifest_path=str(tmp_path / "missing.jsonl"),
+        line_map_path=str(tmp_path / "missing_line_map.json"),
+    )
+    retriever.ticker_set.update({"STB", "SGB", "SHB", "DXS", "PDR", "HBC", "DIG"})
+    retriever.name_to_ticker.update({
+        retriever._normalize_name("Ngân hàng Sài Gòn Thương Tín"): "STB",
+        retriever._normalize_name("Ngân hàng Sài Gòn"): "SGB",
+        retriever._normalize_name("Tập đoàn Đất Xanh"): "DXS",
+        retriever._normalize_name("Tập đoàn Hòa Bình"): "HBC",
+    })
+    assert retriever.extract_all_entities("Ngân hàng Sài Gòn Thương Tín năm 2023")[2] == ["STB"]
+    assert retriever.extract_all_entities("Tập đoàn Đất Xanh năm 2023")[2] == ["DXS"]
+    assert retriever.extract_all_entities("Tập đoàn Hòa Bình năm 2023")[2] == ["HBC"]
+
+
+def test_round2_metrics_are_registered():
+    names = {
+        "cash_and_cash_equivalents", "provision_expense",
+        "corporate_income_tax_payable", "customer_deposits", "gross_revenue",
+        "construction_original_cost",
+    }
+    assert all(DEFAULT_REGISTRY.get(name).name == name for name in names)
 
 
 def test_no_lambda_in_query_formatter():

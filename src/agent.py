@@ -61,7 +61,8 @@ class PandasAgent:
         "answer có sẵn. Chọn đúng Chi_tieu và đơn vị của chính dòng đã chọn. "
         "Giữ nguyên dấu số liệu. Kết thúc bằng print(answer), một scalar số. "
         "QUAN TRỌNG: Luôn dùng str.contains() thay vì str.fullmatch() để tăng độ bền. "
-        "Luôn kiểm tra len(rows) > 0 trước khi gọi .iloc[0]; nếu không tìm thấy gán answer = float('nan')."
+        "Không dùng câu lệnh if/else dạng block. Luôn dùng conditional expression một dòng: "
+        "answer = float(rows['Gia_tri'].iloc[0]) if not rows.empty else float('nan')."
     )
 
     _ONE_EXAMPLE = """Ví dụ ngắn:

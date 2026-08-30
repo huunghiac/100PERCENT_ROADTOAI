@@ -107,13 +107,16 @@ _COMMON_ALIASES = {
 def _default_entities(question: str) -> tuple[str | None, str | None, list[str], list[str]]:
     folded = normalize_metric_text(question)
     positioned: list[tuple[int, str]] = []
+    covered_spans: list[tuple[int, int, str]] = []
     for alias, ticker in sorted(_COMMON_ALIASES.items(), key=lambda item: len(item[0]), reverse=True):
         match = re.search(rf"(?<![a-z0-9]){re.escape(alias)}(?![a-z0-9])", folded)
-        if match:
+        if match and not any(match.start() >= start and match.end() <= end for start, end, _ in covered_spans):
             positioned.append((match.start(), ticker))
+            covered_spans.append((match.start(), match.end(), ticker))
     for match in re.finditer(r"\b([A-Z][A-Z0-9]{1,4})\b", question):
         ticker = match.group(1)
-        if ticker not in _NOISE_TICKERS:
+        covered_by_other = any(start <= match.start() < end and owner != ticker for start, end, owner in covered_spans)
+        if ticker not in _NOISE_TICKERS and not covered_by_other:
             positioned.append((match.start(), ticker))
     tickers: list[str] = []
     for _, ticker in sorted(positioned):

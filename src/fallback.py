@@ -499,6 +499,28 @@ def try_rule_based_answer(
             if best is None or candidate.score > best.score:
                 best = candidate
 
+    # Reject ambiguous row selection. Similar top candidates indicate missing
+    # label evidence; returning either row would make executable but unsafe SQL-like code.
+    if best is None:
+        return None
+    competing_scores: list[float] = []
+    for path in candidates:
+        if not os.path.isfile(path):
+            continue
+        try:
+            df = pd.read_csv(path)
+        except Exception:
+            continue
+        if "Chi_tieu" not in df.columns:
+            continue
+        for idx, row in df.iterrows():
+            if path == best.csv_path and int(idx) == best.row_index:
+                continue
+            semantic_bonus = _semantic_metric_match(question, row.get("Chi_tieu", ""), resolved_plan)
+            if semantic_bonus > 0:
+                competing_scores.append(_row_score(question, path, row.get("Chi_tieu", "")) + semantic_bonus)
+    if competing_scores and best.score - max(competing_scores) < 2.0:
+        return None
     return best
 
 

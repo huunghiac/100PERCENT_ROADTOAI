@@ -259,6 +259,12 @@ BASE_METRICS: tuple[MetricDefinition, ...] = (
         ),
         statement_types=("balance_sheet",),
     ),
+    MetricDefinition("cash_and_cash_equivalents", ("tien va cac khoan tuong duong tien", "tien va tuong duong tien", "cac khoan tuong duong tien"), statement_types=("balance_sheet",), exact_total=True),
+    MetricDefinition("provision_expense", ("chi phi du phong", "chi phi du phong rui ro tin dung", "du phong rui ro tin dung"), statement_types=("income_statement", "notes")),
+    MetricDefinition("corporate_income_tax_payable", ("thue thu nhap doanh nghiep phai nop", "thue tndn phai nop", "thue thu nhap doanh nghiep"), statement_types=("balance_sheet", "notes")),
+    MetricDefinition("customer_deposits", ("tien gui cua khach hang", "tien gui khach hang", "nhan tien gui cua khach hang"), statement_types=("balance_sheet",)),
+    MetricDefinition("gross_revenue", ("tong doanh thu", "doanh thu ban hang va cung cap dich vu", "doanh thu gop"), statement_types=("income_statement",), exact_total=True),
+    MetricDefinition("construction_original_cost", ("nguyen gia cong trinh xay dung", "nguyen gia xay dung", "nguyen gia nha cua vat kien truc"), statement_types=("notes", "balance_sheet")),
 )
 
 
