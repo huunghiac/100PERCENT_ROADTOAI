@@ -1,43 +1,79 @@
-﻿# Hướng Dẫn Chạy ViFinQA Pipeline Trên JupyterLab GPU
+# Hướng Dẫn Chạy ViFinQA Pipeline Trên JupyterLab GPU
 
 Dùng cho môi trường thuê GPU như RunPod, Vast.ai, Lambda Labs, Paperspace hoặc server riêng có JupyterLab.
 
-Cấu hình khuyên dùng hiện tại:
+## Mục tiêu
 
-- **GPU**: NVIDIA A40 48GB VRAM hoặc RTX A6000 48GB VRAM
-- **Model**: `Qwen/Qwen2.5-Coder-14B-Instruct`
-- **Backend**: `transformers`
-- **Precision**: `float16` cho A40, `bfloat16` cũng được với A6000
-- **Không cần quantize** 4-bit/8-bit
+Chạy pipeline sau các fix mới:
+
+- Strip submission chỉ còn 7 field BTC
+- Fix nhầm multi-ticker do ticker trong ngoặc đơn
+- Fix unit mismatch do detect nhầm "cổ phần", ratio/currency
+- Bổ sung 10 metric definitions
+- Prompt guard chống `.iloc[0]` trên DataFrame rỗng
+- Fallback rule-based cho `missing_metric_facts`/`no_mapped_evidence`
+
+Output cần gửi lại để đánh giá:
+
+```text
+submission.json
+submission.zip
+submission.failures.json
+submission.quality.json
+pipeline_full.log
+pipeline_smoke100.log
+gpu_run_artifacts.zip
+```
+
+---
+
+## 1. Cấu hình khuyên dùng
+
+| Thành phần | Khuyên dùng |
+|---|---|
+| GPU | NVIDIA A40 48GB, RTX A6000 48GB, A100 40GB+ |
+| Model | `Qwen/Qwen2.5-Coder-14B-Instruct` |
+| Backend | `transformers` |
+| Precision | `float16` hoặc `bfloat16` |
+| Quantize | Không cần với 40GB+ VRAM |
 
 Repo:
 
-- **GitHub**: `https://github.com/huunghiac/100PERCENT_ROADTOAI.git`
+```text
+https://github.com/huunghiac/100PERCENT_ROADTOAI.git
+```
 
-> Lưu ý: `_manifest.jsonl` được lưu bằng Git LFS. Cần `git lfs pull` sau khi clone.
-
----
-
-## 1. Mở JupyterLab
-
-Sau khi thuê GPU, mở link JupyterLab nhà cung cấp đưa.
-
-Trong JupyterLab:
-
-1. Chọn **File**.
-2. Chọn **New**.
-3. Chọn **Terminal**.
-4. Chạy lệnh setup ở phần dưới.
+Lưu ý: `data/processed_csv/_manifest.jsonl` dùng Git LFS. Phải chạy `git lfs pull`.
 
 ---
 
-## 2. Setup trong Terminal JupyterLab
+## 2. Cách nhanh nhất
 
-Chạy toàn bộ block này trong Terminal:
+Upload/chạy notebook có sẵn:
+
+```text
+run_gpu_vifinqa.ipynb
+```
+
+Trong notebook chỉ cần sửa nếu cần:
+
+```python
+REPO_URL = "https://github.com/huunghiac/100PERCENT_ROADTOAI.git"
+BRANCH = "main"
+ROOT = "/workspace/Road-to-AI"
+MODEL_NAME = "Qwen/Qwen2.5-Coder-14B-Instruct"
+RUN_SMOKE_100 = True
+RUN_FULL = True
+```
+
+Sau đó chạy tuần tự tất cả cells.
+
+---
+
+## 3. Nếu setup bằng Terminal JupyterLab
 
 ```bash
 cd /workspace 2>/dev/null || cd ~
-
 apt-get update && apt-get install -y git-lfs
 
 git lfs install
@@ -47,17 +83,21 @@ if [ ! -d "Road-to-AI" ]; then
 fi
 
 cd Road-to-AI
-
+git fetch origin
+git checkout main
 git pull origin main
-
 git lfs pull
 
 python -m pip install --upgrade pip
-python -m pip install -U transformers accelerate rank-bm25 pandas sentencepiece protobuf tqdm
 python -m pip install -U torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+python -m pip install -U transformers accelerate rank-bm25 pandas sentencepiece protobuf tqdm pytest ipywidgets huggingface_hub
 ```
 
-Kiểm tra nhanh:
+Nếu cài torch xong kernel lỗi, restart kernel/Jupyter rồi chạy tiếp.
+
+---
+
+## 4. Kiểm tra GPU
 
 ```bash
 python - <<'PY'
@@ -68,9 +108,10 @@ for i in range(torch.cuda.device_count()):
     p = torch.cuda.get_device_properties(i)
     print(i, p.name, round(p.total_memory / 1024**3, 2), 'GiB')
 PY
+nvidia-smi
 ```
 
-Kỳ vọng với A6000:
+Kỳ vọng:
 
 ```text
 CUDA available: True
@@ -80,297 +121,195 @@ GPU count: 1
 
 ---
 
-## 3. Tạo Notebook
+## 5. Kiểm tra code trước khi chạy
 
-Trong JupyterLab:
-
-1. Mở thư mục `Road-to-AI`.
-2. Tạo notebook mới: **File** -> **New** -> **Notebook**.
-3. Chọn kernel Python.
-4. Lưu tên ví dụ: `run_qwen14b.ipynb`.
-
-Notebook phải chạy từ thư mục repo `Road-to-AI`. Nếu không chắc, Cell 1 bên dưới tự `chdir`.
-
----
-
-## 4. Cell 1 - Thiết lập thư mục làm việc và kiểm tra GPU
-
-```python
-import os
-import sys
-import torch
-
-candidates = [
-    os.getcwd(),
-    '/workspace/Road-to-AI',
-    os.path.expanduser('~/Road-to-AI'),
-]
-
-ROOT = None
-for path in candidates:
-    if os.path.exists(os.path.join(path, 'src')) and os.path.exists(os.path.join(path, 'data')):
-        ROOT = path
-        break
-
-if ROOT is None:
-    raise RuntimeError('Không tìm thấy repo Road-to-AI. Hãy mở notebook trong thư mục Road-to-AI.')
-
-os.chdir(ROOT)
-sys.path.insert(0, os.path.abspath('src'))
-
-print('ROOT:', os.getcwd())
-print('CUDA Available:', torch.cuda.is_available())
-print('Device Count:', torch.cuda.device_count())
-
-for i in range(torch.cuda.device_count()):
-    p = torch.cuda.get_device_properties(i)
-    print(f'GPU {i}: {p.name} | VRAM: {p.total_memory / 1024**3:.2f} GiB')
-
-print('questions.jsonl exists:', os.path.exists('data/raw_vifinqa/questions.jsonl'))
-print('processed_csv exists:', os.path.exists('data/processed_csv'))
-```
-
----
-
-## 5. Cell 2 - Load model Qwen2.5-Coder-14B bằng Transformers
-
-Model tải tự động từ Hugging Face:
-
-`https://huggingface.co/Qwen/Qwen2.5-Coder-14B-Instruct`
-
-Dung lượng tải lần đầu khoảng 28-30GB. Cache mặc định nằm ở `~/.cache/huggingface/hub`.
-
-Nếu disk `/workspace` lớn hơn home, đặt cache vào `/workspace/hf_cache`:
-
-```python
-import os
-import torch
-from agent import PandasAgent
-
-os.environ['HF_HOME'] = '/workspace/hf_cache'
-os.environ['TRANSFORMERS_CACHE'] = '/workspace/hf_cache'
-
-agent = PandasAgent(
-    model_name='Qwen/Qwen2.5-Coder-14B-Instruct',
-    backend='transformers',
-    torch_dtype=torch.float16,
-)
-
-print('PandasAgent loaded successfully!')
-```
-
-Với A40, giữ `torch.float16`. Với RTX A6000, có thể đổi sang:
-
-```python
-torch_dtype=torch.bfloat16
-```
-
----
-
-## 6. Cell 3 - Chạy thử 5 câu đầu (tự ghi log ra file)
-
-```python
-import sys, os
-sys.path.insert(0, os.path.abspath('src'))
-from pipeline import run_full_pipeline
-
-class LogTee:
-    """Ghi output song song ra màn hình và file log."""
-    def __init__(self, filepath="pipeline_test5.log"):
-        self.file = open(filepath, "w", encoding="utf-8")
-        self.stdout = sys.stdout
-
-    def write(self, text):
-        self.stdout.write(text)
-        self.file.write(text)
-        self.file.flush()
-
-    def flush(self):
-        self.stdout.flush()
-        self.file.flush()
-
-    def close(self):
-        self.file.close()
-        sys.stdout = self.stdout
-
-logger = LogTee("pipeline_test5.log")
-sys.stdout = logger
-
-try:
-    run_full_pipeline(
-        questions_file='data/raw_vifinqa/questions.jsonl',
-        output_json='submission_test5.json',
-        output_zip='submission_test5.zip',
-        max_questions=5,
-        checkpoint_interval=1,
-        agent=agent,
-    )
-finally:
-    logger.close()
-```
-
----
-
-## 7. Cell 4 - Validate file test
-
-```python
-!python validate_submission.py submission_test5.json
-```
-
-Nếu validate OK, chạy full.
-
----
-
-## 7b. Cell 4b - Chạy test 200 câu (đánh giá trước khi chạy full)
-
-```python
-import sys, os
-sys.path.insert(0, os.path.abspath('src'))
-from pipeline import run_full_pipeline
-
-logger = LogTee("pipeline_test200.log")
-sys.stdout = logger
-
-try:
-    run_full_pipeline(
-        questions_file='data/raw_vifinqa/questions.jsonl',
-        output_json='submission_test200.json',
-        output_zip='submission_test200.zip',
-        max_questions=200,
-        checkpoint_interval=10,
-        agent=agent,
-    )
-finally:
-    logger.close()
-```
-
-Validate & chấm điểm mô phỏng 200 câu:
-
-```python
-!python validate_submission.py submission_test200.json
-!python tests/test_submission_eval.py submission_test200.json
-```
-
----
-
-## 8. Cell 5 - Chạy toàn bộ bộ câu hỏi (tự ghi log ra file)
-
-```python
-import sys, os
-sys.path.insert(0, os.path.abspath('src'))
-from pipeline import run_full_pipeline
-
-logger = LogTee("pipeline_full.log")
-sys.stdout = logger
-
-try:
-    run_full_pipeline(
-        questions_file='data/raw_vifinqa/questions.jsonl',
-        output_json='submission.json',
-        output_zip='submission.zip',
-        max_questions=None,
-        checkpoint_interval=20,
-        agent=agent,
-    )
-finally:
-    logger.close()
-```
-
----
-
-## 9. Cell 6 - Validate submission cuối
-
-```python
-!python validate_submission.py submission.json
-```
-
----
-
-## 10. Cell 7 - Thống kê nhanh kết quả
-
-```python
-import json
-
-with open('submission.json', 'r', encoding='utf-8') as f:
-    rows = json.load(f)
-
-total = len(rows)
-nonzero = sum(1 for x in rows if float(x.get('answer', 0) or 0) != 0)
-zero_ids = [x['id'] for x in rows if float(x.get('answer', 0) or 0) == 0]
-gen_failed = [x['id'] for x in rows if 'GENERATION_FAILED' in x.get('pandas_query', '')]
-fallback = [x['id'] for x in rows if 'FALLBACK' in x.get('pandas_query', '') or 'df.iloc' in x.get('pandas_query', '')]
-
-print('TOTAL:', total)
-print('NONZERO:', nonzero)
-print('ZERO:', total - nonzero)
-print('ZERO IDS:', zero_ids)
-print('GENERATION_FAILED:', len(gen_failed), gen_failed)
-print('FALLBACK-like:', len(fallback), fallback[:50])
-```
-
----
-
-## 11. Cell 8 - Tải file kết quả về máy
-
-Trong JupyterLab sidebar:
-
-1. Tìm `submission.zip`.
-2. Chuột phải.
-3. Chọn **Download**.
-
-Hoặc link trong notebook:
-
-```python
-from IPython.display import FileLink
-
-display(FileLink('submission.zip'))
-display(FileLink('submission.json'))
-```
-
----
-
-## 12. Ước tính tài nguyên
-
-| GPU | VRAM | Model | Precision | Kỳ vọng |
-|---|---:|---|---|---|
-| RTX A6000 | 48GB | Qwen2.5-Coder-14B | BF16 | Rất phù hợp |
-| A100 40GB | 40GB | Qwen2.5-Coder-14B | BF16 | Phù hợp |
-| RTX 4090 | 24GB | Qwen2.5-Coder-14B | 8-bit/4-bit | Cần quantize |
-| T4 16GB | 16GB | Qwen2.5-Coder-14B | 4-bit | Không khuyên dùng |
-
-A6000 48GB chạy model 14B full BF16 thoải mái:
-
-- Weights: khoảng 28-30GB
-- KV cache + runtime: khoảng 4-8GB
-- Tổng thực tế: khoảng 32-38GB
-- Còn dư VRAM: khoảng 10GB+
-
----
-
-## 13. Lỗi thường gặp
-
-### Lỗi 1: `CUDA out of memory`
-
-Giảm context:
-
-```python
-max_length=4096
-```
-
-Hoặc restart kernel rồi load lại model.
-
-### Lỗi 2: `ModuleNotFoundError`
-
-Chạy lại trong Terminal:
+Trong repo:
 
 ```bash
-cd /workspace/Road-to-AI
-python -m pip install -U transformers accelerate rank-bm25 pandas sentencepiece protobuf tqdm
+python -m pytest tests/ -x -q
 ```
 
-### Lỗi 3: Không thấy `data/raw_vifinqa/questions.jsonl`
+Kỳ vọng local hiện tại:
 
-Chạy lại:
+```text
+202 passed
+```
+
+Nếu fail, dừng lại. Gửi log lỗi.
+
+---
+
+## 6. Không dùng checkpoint cũ
+
+Checkpoint cũ có thể chứa field nội bộ hoặc kết quả trước fix. Backup trước khi chạy:
+
+```bash
+python - <<'PY'
+from pathlib import Path
+from datetime import datetime
+stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+for name in ['submission.json','submission.zip','submission.failures.json','submission.quality.json','pipeline_full.log','pipeline_smoke100.log']:
+    p = Path(name)
+    if p.exists():
+        new = p.with_name(f'{p.stem}.before_{stamp}{p.suffix}')
+        p.rename(new)
+        print('backup', p, '->', new)
+PY
+```
+
+---
+
+## 7. Chạy smoke 100 câu
+
+Trong notebook dùng `agent` đã load. Nếu chạy script trực tiếp:
+
+```bash
+python src/pipeline.py 100 2>&1 | tee pipeline_smoke100.log
+```
+
+Khuyên dùng notebook vì notebook truyền sẵn `PandasAgent` 14B vào `run_full_pipeline()`.
+
+Sau smoke, kiểm tra:
+
+```bash
+python validate_submission.py submission_smoke100.json
+```
+
+Kiểm tra 7 field BTC:
+
+```bash
+python - <<'PY'
+import json
+allowed = {'id','question','answer','relevant_docs','relevant_tables','evidence','pandas_query'}
+with open('submission_smoke100.json', encoding='utf-8') as f:
+    rows = json.load(f)
+bad = [(x.get('id'), sorted(set(x)-allowed)) for x in rows if set(x)-allowed]
+print('saved:', len(rows))
+print('invalid fields:', bad[:10])
+assert not bad
+PY
+```
+
+---
+
+## 8. Chạy full 1012 câu
+
+Trong notebook:
+
+```python
+run_full_pipeline(
+    questions_file='data/raw_vifinqa/questions.jsonl',
+    output_json='submission.json',
+    output_zip='submission.zip',
+    max_questions=None,
+    checkpoint_interval=20,
+    agent=agent,
+)
+```
+
+Hoặc CLI:
+
+```bash
+python src/pipeline.py 2>&1 | tee pipeline_full.log
+```
+
+Notebook tốt hơn vì giữ model loaded trong memory và truyền `agent` vào pipeline.
+
+---
+
+## 9. Validate output cuối
+
+```bash
+python validate_submission.py submission.json
+```
+
+Kiểm tra 7 field:
+
+```bash
+python - <<'PY'
+import json
+allowed = {'id','question','answer','relevant_docs','relevant_tables','evidence','pandas_query'}
+with open('submission.json', encoding='utf-8') as f:
+    rows = json.load(f)
+bad = [(x.get('id'), sorted(set(x)-allowed)) for x in rows if set(x)-allowed]
+print('saved:', len(rows))
+print('invalid fields:', bad[:10])
+assert not bad
+PY
+```
+
+Thống kê failures:
+
+```bash
+python - <<'PY'
+import json, collections
+p = 'submission.failures.json'
+with open(p, encoding='utf-8') as f:
+    rows = json.load(f)
+print('failures:', len(rows))
+print(collections.Counter(x.get('code') or x.get('stage') for x in rows).most_common(30))
+PY
+```
+
+---
+
+## 10. Package artifact gửi lại
+
+```bash
+python - <<'PY'
+from pathlib import Path
+from zipfile import ZipFile, ZIP_DEFLATED
+files = [
+    'submission.json', 'submission.zip', 'submission.failures.json', 'submission.quality.json',
+    'pipeline_full.log', 'pipeline_smoke100.log',
+    'submission_smoke100.json', 'submission_smoke100.zip',
+    'submission_smoke100.failures.json', 'submission_smoke100.quality.json',
+]
+with ZipFile('gpu_run_artifacts.zip', 'w', ZIP_DEFLATED) as z:
+    for name in files:
+        p = Path(name)
+        if p.exists():
+            z.write(p, p.name)
+            print('add', p)
+print('created gpu_run_artifacts.zip')
+PY
+```
+
+Gửi lại:
+
+```text
+gpu_run_artifacts.zip
+submission.json
+submission.failures.json
+submission.quality.json
+pipeline_full.log
+```
+
+---
+
+## 11. Lỗi thường gặp
+
+### `CUDA out of memory`
+
+Dùng GPU 40GB+ cho 14B. Nếu vẫn OOM:
+
+- Restart kernel
+- Đảm bảo không load model nhiều lần
+- Giảm `prompt_token_budget` còn `4096`
+- Dùng model 7B nếu bắt buộc:
+
+```python
+MODEL_NAME = "Qwen/Qwen2.5-Coder-7B-Instruct"
+```
+
+### Tải model Hugging Face chậm
+
+```bash
+export HF_HOME=/workspace/hf_cache
+huggingface-cli download Qwen/Qwen2.5-Coder-14B-Instruct
+```
+
+### Không thấy data
 
 ```bash
 cd /workspace/Road-to-AI
@@ -378,12 +317,30 @@ git lfs pull
 find data -maxdepth 3 -type f | head
 ```
 
-### Lỗi 4: Tải model Hugging Face chậm hoặc timeout
-
-Tải trước bằng Terminal:
+### `ModuleNotFoundError`
 
 ```bash
-cd /workspace/Road-to-AI
-export HF_HOME=/workspace/hf_cache
-huggingface-cli download Qwen/Qwen2.5-Coder-14B-Instruct
+python -m pip install -U transformers accelerate rank-bm25 pandas sentencepiece protobuf tqdm pytest
 ```
+
+### Notebook không ở đúng folder
+
+Cell config tự `chdir(ROOT)`. Nếu repo clone nơi khác, sửa:
+
+```python
+ROOT = "/path/to/Road-to-AI"
+```
+
+---
+
+## 12. Sau khi chạy xong
+
+Đưa lại artifact. Sẽ phân tích tiếp:
+
+- Saved count mới
+- `missing_target_metric` giảm bao nhiêu
+- `missing_metric_facts` fallback cứu được bao nhiêu
+- `incompatible_target_unit` còn bao nhiêu
+- IndexError còn không
+- Query execution format đúng không
+- Có regression answer không

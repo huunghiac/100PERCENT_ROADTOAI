@@ -120,6 +120,15 @@ def _default_entities(question: str) -> tuple[str | None, str | None, list[str],
         if ticker not in tickers:
             tickers.append(ticker)
 
+    # Anchor filter: nếu câu có đúng 1 ticker ngoặc đơn "(GEE)" không phải noise
+    # → chỉ giữ anchor, loại các ticker từ partial name match.
+    paren_tickers = [
+        t for t in re.findall(r'\(([A-Z]{2,5})\)', question)
+        if t not in _NOISE_TICKERS
+    ]
+    if len(paren_tickers) == 1 and len(tickers) > 1:
+        tickers = [paren_tickers[0]]
+
     years: list[str] = []
     for match in re.finditer(r"\b(20\d{2})\s*[-–—]\s*(20\d{2})\b", question):
         start, end = int(match.group(1)), int(match.group(2))

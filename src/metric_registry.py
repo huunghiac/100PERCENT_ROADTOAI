@@ -161,6 +161,104 @@ BASE_METRICS: tuple[MetricDefinition, ...] = (
         statement_types=("notes",),
     ),
     MetricDefinition("eps", ("lai co ban tren co phieu", "eps co ban", "eps"), statement_types=("income_statement", "notes")),
+    # ── Các chỉ tiêu bổ sung (B2 fix) ──
+    MetricDefinition(
+        "long_term_investments",
+        (
+            "dau tu gop von vao don vi khac",
+            "dau tu vao cong ty con",
+            "dau tu vao cong ty lien ket",
+            "dau tu tai chinh dai han",
+            "cac khoan dau tu tai chinh dai han",
+            "dau tu gop von",
+        ),
+        statement_types=("balance_sheet",),
+    ),
+    MetricDefinition(
+        "construction_in_progress",
+        (
+            "chi phi xay dung co ban do dang",
+            "xay dung co ban do dang",
+            "xay dung do dang",
+            "tai san dang hinh thanh",
+        ),
+        statement_types=("balance_sheet",),
+    ),
+    MetricDefinition(
+        "deferred_tax_assets",
+        (
+            "tai san thue thu nhap hoan lai",
+            "tai san thue hoan lai",
+            "thue tndn hoan lai",
+        ),
+        statement_types=("balance_sheet",),
+    ),
+    MetricDefinition(
+        "goodwill",
+        (
+            "loi the thuong mai",
+            "goodwill",
+        ),
+        statement_types=("balance_sheet",),
+    ),
+    MetricDefinition(
+        "bonds_payable",
+        (
+            "trai phieu phat hanh",
+            "giay to co gia phat hanh",
+            "giay to co gia",
+            "trai phieu",
+        ),
+        statement_types=("balance_sheet", "notes"),
+    ),
+    MetricDefinition(
+        "total_equity_and_liabilities",
+        (
+            "tong cong nguon von",
+            "tong nguon von",
+            "tong no va von chu so huu",
+        ),
+        statement_types=("balance_sheet",),
+        exact_total=True,
+    ),
+    MetricDefinition(
+        "payables_to_suppliers",
+        (
+            "phai tra nguoi ban",
+            "phai tra ngan han nguoi ban",
+            "no phai tra nguoi ban",
+        ),
+        statement_types=("balance_sheet",),
+    ),
+    MetricDefinition(
+        "other_income",
+        (
+            "thu nhap khac",
+            "loi nhuan tu hoat dong khac",
+            "loi nhuan khac",
+        ),
+        statement_types=("income_statement",),
+    ),
+    MetricDefinition(
+        "management_compensation",
+        (
+            "tong thu nhap ban giam doc",
+            "thu nhap ban giam doc",
+            "thu lao ban giam doc",
+            "luong ban giam doc",
+        ),
+        statement_types=("notes",),
+    ),
+    MetricDefinition(
+        "deferred_revenue",
+        (
+            "tam ung tu khach hang",
+            "tien nhan truoc ngan han",
+            "doanh thu chua thuc hien",
+            "doanh thu nhan truoc",
+        ),
+        statement_types=("balance_sheet",),
+    ),
 )
 
 

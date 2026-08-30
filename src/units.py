@@ -260,8 +260,18 @@ def detect_unit_name(text: object, default: str = "") -> str:
 
 
 def detect_target_unit(question: object) -> str:
-    """Compatibility helper returning a canonical target-unit string."""
+    """Detect unit câu hỏi hỏi, ưu tiên cụm 'là/bằng bao nhiêu [unit]?' cuối câu.
 
+    Tìm trong toàn câu dễ bắt nhầm 'cổ phần' từ 'Công ty Cổ phần X' hay
+    'phần trăm' từ tên chỉ tiêu — vì vậy ưu tiên cụm cuối câu trước.
+    """
+    norm = normalize_unit_text(str(question))
+    # Ưu tiên detect sau "là/bằng bao nhiêu <unit>?"
+    m = re.search(r'(?:la|bang)\s+bao\s+nhieu\s+(.{1,40}?)(?:\s*\?|$)', norm)
+    if m:
+        candidate = detect_unit_name(m.group(1))
+        if candidate:
+            return candidate
     return detect_unit_name(question)
 
 

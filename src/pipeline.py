@@ -545,6 +545,45 @@ def run_full_pipeline(
             stats.saved += 1
             print(f"  saved answer={item['answer']} evidence={len(item['evidence'])}")
         except StructuredSolveFailure as exc:
+            fallback_used = False
+            if (
+                exc.code in {"missing_metric_facts", "no_mapped_evidence"}
+                and plan is not None
+                and len(plan.tickers) == 1
+                and not plan.filters
+                and plan.selection_operation is None
+                and plan.aggregation is None
+                and plan.grouping is None
+            ):
+                try:
+                    paths = retriever.retrieve(question)
+                    bundle = _bundle_from_paths(paths)
+                    fallback = try_rule_based_answer(question, bundle.paths, plan=plan)
+                    if fallback is not None:
+                        item, saved_paths = _finalize_item(
+                            question_id=question_id,
+                            question=question,
+                            plan=plan,
+                            bundle=bundle,
+                            query_or_script=fallback.pandas_query,
+                            retriever=retriever,
+                            solver_validation={
+                                "single_row_fallback_used": True,
+                                "solver_mode": "structured_rule_fallback",
+                                "fallback_reason": exc.code,
+                            },
+                        )
+                        results_map[question_id] = item
+                        used_csv_paths.update(saved_paths)
+                        stats.saved += 1
+                        stats.fallback_simple += 1
+                        stats.evidence_simple.append(len(item["evidence"]))
+                        fallback_used = True
+                        print(f"  structured fallback saved answer={item['answer']} evidence={len(item['evidence'])}")
+                except Exception as fallback_exc:
+                    print(f"  structured fallback failed: {type(fallback_exc).__name__}: {fallback_exc}")
+            if fallback_used:
+                continue
             stats.failed += 1
             failures[question_id] = {
                 "id": question_id,
@@ -602,8 +641,19 @@ def run_full_pipeline(
     return quality
 
 
+_BTC_FIELDS = frozenset({
+    "id", "question", "answer",
+    "relevant_docs", "relevant_tables", "evidence", "pandas_query",
+})
+
+
+def _strip_internal_fields(item: dict[str, Any]) -> dict[str, Any]:
+    """Loại bỏ trường nội bộ (validation, question_plan...) trước khi write submission."""
+    return {k: v for k, v in item.items() if k in _BTC_FIELDS}
+
+
 def _save_json(results_map: Mapping[int, dict[str, Any]], path: str) -> None:
-    ordered = [results_map[key] for key in sorted(results_map)]
+    ordered = [_strip_internal_fields(results_map[key]) for key in sorted(results_map)]
     with open(path, "w", encoding="utf-8") as handle:
         json.dump(ordered, handle, ensure_ascii=False, indent=2)
 

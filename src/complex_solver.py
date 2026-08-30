@@ -962,6 +962,14 @@ class ComplexSolver:
         source = resolve_unit(value.unit)
         target = resolve_unit(target_unit)
         if source is None or target is None or source.dimension != target.dimension:
+            # Ratio/dimensionless metric (lần, %) — bỏ qua yêu cầu convert sang đơn vị khác.
+            # Planner hay detect_target_unit đôi khi bắt nhầm đơn vị từ tên công ty / văn cảnh.
+            if source is not None and source.dimension == UnitDimension.RATIO:
+                return value.value, value.expression, value.unit
+            # Currency metric, target là ratio — bỏ qua tương tự.
+            if (source is not None and source.is_currency
+                    and target is not None and target.dimension == UnitDimension.RATIO):
+                return value.value, value.expression, value.unit
             raise StructuredSolveFailure(
                 "incompatible_target_unit",
                 f"Cannot convert deterministic result from {value.unit!r} to {target_unit!r}",

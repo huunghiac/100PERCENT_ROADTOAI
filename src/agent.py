@@ -59,13 +59,15 @@ class PandasAgent:
         "Chỉ trả về đúng một code block Python. Các DataFrame df1, df2, ... "
         "đã được nạp; không đọc file, không import, không đoán dòng, không dùng "
         "answer có sẵn. Chọn đúng Chi_tieu và đơn vị của chính dòng đã chọn. "
-        "Giữ nguyên dấu số liệu. Kết thúc bằng print(answer), một scalar số."
+        "Giữ nguyên dấu số liệu. Kết thúc bằng print(answer), một scalar số. "
+        "QUAN TRỌNG: Luôn dùng str.contains() thay vì str.fullmatch() để tăng độ bền. "
+        "Luôn kiểm tra len(rows) > 0 trước khi gọi .iloc[0]; nếu không tìm thấy gán answer = float('nan')."
     )
 
     _ONE_EXAMPLE = """Ví dụ ngắn:
 ```python
-row = df1[df1['Chi_tieu'].str.fullmatch(r'Doanh thu thuần', case=False, na=False)].iloc[0]
-answer = float(row['Gia_tri'])
+rows = df1[df1['Chi_tieu'].str.contains('Doanh thu thuần', case=False, na=False)]
+answer = float(rows['Gia_tri'].iloc[0]) if len(rows) > 0 else float('nan')
 print(answer)
 ```"""
 

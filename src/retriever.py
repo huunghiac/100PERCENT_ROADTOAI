@@ -325,6 +325,16 @@ class TableRetriever:
             if ticker not in tickers:
                 tickers.append(ticker)
 
+        # Anchor filter: nếu câu có đúng 1 ticker trong ngoặc đơn "(SHB)" thuộc ticker_set
+        # → chỉ giữ anchor đó, loại các ticker chỉ từ partial name match.
+        # Không áp dụng khi có 2+ anchor (câu multi-company thực sự: "(ACB) và (VCB)").
+        paren_tickers = [
+            t for t in re.findall(r'\(([A-Z]{2,5})\)', question)
+            if t in self.ticker_set and t not in self._NOISE_TICKERS
+        ]
+        if len(paren_tickers) == 1 and len(tickers) > 1:
+            tickers = [paren_tickers[0]]
+
         # 4. Years: 2016-2020 range hoặc các năm riêng lẻ
         years = []
         # Pattern 2016-2020
