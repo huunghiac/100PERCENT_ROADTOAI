@@ -1,59 +1,117 @@
-import json
-import pandas as pd
+"""Small-context pandas code agent used only for simple ViFinQA lookups.
+
+Analytical questions are solved by :mod:`complex_solver`. This module keeps
+the legacy model backend, but guarantees that the complete question and core
+constraints are never tokenizer-truncated. Evidence is the only section that
+may be shortened to meet a prompt budget.
+"""
+
+from __future__ import annotations
+
+import io
 import os
 import re
 import sys
-import io
 import traceback
+from dataclasses import dataclass
+from typing import Mapping, Sequence
 
-# ---------- Backend detection ----------
+import pandas as pd
+
+try:
+    from .units import detect_target_unit
+except ImportError:  # pragma: no cover - legacy script imports
+    from units import detect_target_unit
+
 try:
     import torch
-    from transformers import AutoTokenizer, AutoModelForCausalLM
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
     _HAS_TRANSFORMERS = True
-except ImportError:
+except ImportError:  # pragma: no cover - optional inference dependency
     _HAS_TRANSFORMERS = False
 
 try:
     import requests as _requests
-except ImportError:
+except ImportError:  # pragma: no cover - optional inference dependency
     _requests = None
 
 
+class PromptBudgetError(ValueError):
+    """The immutable prompt sections alone exceed the model context."""
+
+
+@dataclass(frozen=True)
+class PromptReport:
+    token_budget: int
+    estimated_tokens: int
+    question_preserved: bool
+    evidence_truncated: bool
+    raw_csv_tables: int
+    semantic_context: bool
+
+
 class PandasAgent:
-    def __init__(self,
-                 model_name="Qwen/Qwen2.5-Coder-7B-Instruct",
-                 base_url="http://localhost:11434",
-                 backend="auto",
-                 torch_dtype=None,
-                 max_new_tokens=768):
-        """
-        backend: "auto" | "transformers" | "ollama"
-        """
+    """Generate auditable pandas expressions for simple lookups only."""
+
+    _SYSTEM_PROMPT = (
+        "Bạn là bộ sinh biểu thức Pandas cho dữ liệu BCTC Việt Nam. "
+        "Chỉ trả về đúng một code block Python. Các DataFrame df1, df2, ... "
+        "đã được nạp; không đọc file, không import, không đoán dòng, không dùng "
+        "answer có sẵn. Chọn đúng Chi_tieu và đơn vị của chính dòng đã chọn. "
+        "Giữ nguyên dấu số liệu. Kết thúc bằng print(answer), một scalar số."
+    )
+
+    _ONE_EXAMPLE = """Ví dụ ngắn:
+```python
+row = df1[df1['Chi_tieu'].str.fullmatch(r'Doanh thu thuần', case=False, na=False)].iloc[0]
+answer = float(row['Gia_tri'])
+print(answer)
+```"""
+
+    _PREVIEW_STOPWORDS = {
+        "của", "cho", "và", "vào", "cuối", "trong", "năm", "là", "bao", "nhiêu",
+        "đồng", "triệu", "tỷ", "nghìn", "ngày", "tháng", "đến", "tại", "với",
+        "công", "ty", "ctcp", "tnhh", "tmcp", "ngân", "hàng", "tổng", "tập", "đoàn",
+        "mẹ", "hợp", "nhất", "riêng", "báo", "cáo", "đơn", "vị", "theo", "các",
+    }
+
+    def __init__(
+        self,
+        model_name: str = "Qwen/Qwen2.5-Coder-7B-Instruct",
+        base_url: str = "http://localhost:11434",
+        backend: str = "auto",
+        torch_dtype=None,
+        max_new_tokens: int = 512,
+        prompt_token_budget: int = 5632,
+    ) -> None:
         self.max_new_tokens = max_new_tokens
+        self.prompt_token_budget = int(prompt_token_budget)
+        self.last_prompt_report: PromptReport | None = None
         if backend == "auto":
             backend = "transformers" if _HAS_TRANSFORMERS else "ollama"
         self.backend = backend
 
-        if self.backend == "transformers":
+        if backend == "transformers":
             if not _HAS_TRANSFORMERS:
                 raise ImportError("pip install transformers torch accelerate")
             print(f"[Agent] Loading {model_name} via transformers ...")
             if torch_dtype is None:
                 torch_dtype = torch.float16
             self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-            # Detect GPU memory → ép accelerate dùng hết VRAM trước khi fallback CPU
             if torch.cuda.is_available():
                 max_memory = {
-                    i: f"{int(torch.cuda.get_device_properties(i).total_memory * 0.90 / 1e9)}GiB"
-                    for i in range(torch.cuda.device_count())
+                    index: f"{int(torch.cuda.get_device_properties(index).total_memory * 0.90 / 1e9)}GiB"
+                    for index in range(torch.cuda.device_count())
                 }
                 max_memory["cpu"] = "32GiB"
             else:
                 max_memory = None
             self.model = AutoModelForCausalLM.from_pretrained(
-                model_name, torch_dtype=torch_dtype,
-                device_map="auto", max_memory=max_memory,
+                model_name,
+                torch_dtype=torch_dtype,
+                device_map="auto",
+                max_memory=max_memory,
                 trust_remote_code=True,
             )
             self.model.eval()
@@ -65,500 +123,352 @@ class PandasAgent:
             self.model = None
 
     def clean_response(self, text: str) -> str:
-        # Xóa <think>...</think> block (có hoặc không đóng tag)
-        cleaned = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL).strip()
-        cleaned = re.sub(r'<think>.*', '', cleaned, flags=re.DOTALL).strip()
-        cleaned = re.sub(r'^\s*NEW\s+CODE:\s*', '', cleaned, flags=re.IGNORECASE)
-
-        code = None
-
-        # 0) Ưu tiên: tìm block # BEGIN SOLUTION ... # END SOLUTION
-        sol_match = re.search(r'#\s*BEGIN\s+SOLUTION\s*\n(.*?)#\s*END\s+SOLUTION', cleaned, re.DOTALL)
-        if sol_match:
-            code = sol_match.group(1).strip()
-
-        # 1) Tìm tất cả markdown code blocks, lấy block đầu tiên có nội dung thực
+        cleaned = re.sub(r"<think>.*?</think>", "", text or "", flags=re.DOTALL).strip()
+        cleaned = re.sub(r"<think>.*", "", cleaned, flags=re.DOTALL).strip()
+        solution = re.search(r"#\s*BEGIN\s+SOLUTION\s*\n(.*?)#\s*END\s+SOLUTION", cleaned, re.DOTALL)
+        code = solution.group(1).strip() if solution else ""
         if not code:
-            blocks = re.findall(r'```(?:python)?\s*(.*?)\s*```', cleaned, re.DOTALL)
-            for block in blocks:
-                b = block.strip()
-                if len(b) > 10 and any(m in b for m in ['df1', 'df2', 'print(', 'answer', '.iloc', '.str.', 'float(', '# BEGIN']):
-                    code = b
-                    # Nếu block chứa BEGIN/END SOLUTION, cắt lấy phần trong
-                    inner = re.search(r'#\s*BEGIN\s+SOLUTION\s*\n(.*?)#\s*END\s+SOLUTION', b, re.DOTALL)
-                    if inner:
-                        code = inner.group(1).strip()
+            for block in re.findall(r"```(?:python)?\s*(.*?)\s*```", cleaned, re.DOTALL | re.IGNORECASE):
+                candidate = block.strip()
+                if any(marker in candidate for marker in ("df1", "print(", "answer", "result")):
+                    code = candidate
                     break
-
-        # 2) Có import pandas → lấy từ đó trở đi
-        if not code and "import pandas" in cleaned:
-            code = cleaned[cleaned.find("import pandas"):].strip()
-
-        # 3) Thử lấy code trần: tìm dòng đầu tiên có dấu hiệu code Python
         if not code:
-            code_lines = []
-            found_code = False
-            for line in cleaned.split("\n"):
+            lines: list[str] = []
+            started = False
+            for line in cleaned.splitlines():
                 stripped = line.strip()
-                if not stripped:
-                    if found_code:
-                        code_lines.append(line)
-                    continue
-                is_code = any(marker in stripped for marker in [
-                    "df1", "df2", "df3", "float(", "int(", "abs(",
-                    ".iloc", ".loc[", ".str.", "print(", "= pd.",
-                    "answer", "result", "val ", "val=",
-                    "m_", "m =", "row ", "row=",
-                ])
-                if not is_code:
-                    is_code = bool(re.match(r'^[a-zA-Z_]\w*\s*=', stripped))
-                if is_code:
-                    found_code = True
-                    code_lines.append(line)
-                elif found_code:
-                    if not stripped.startswith("#"):
-                        break
-                    code_lines.append(line)
-            code = "\n".join(code_lines).strip()
-
+                looks_like_code = bool(
+                    re.match(r"^[A-Za-z_]\w*\s*=", stripped)
+                    or re.search(r"\bdf[1-9]\d*\b|print\(", stripped)
+                )
+                if looks_like_code:
+                    started = True
+                    lines.append(line)
+                elif started and (not stripped or stripped.startswith("#")):
+                    lines.append(line)
+                elif started:
+                    break
+            code = "\n".join(lines).strip()
         if not code:
-            return 'import pandas as pd\n# GENERATION_FAILED\nprint(0.0)'
-
-        # Cắt bỏ text giải thích sau code nếu model lỡ viết thêm.
-        code = re.split(r'\n\s*(?:Explanation|Giải thích|Notes?):', code, maxsplit=1)[0].strip()
-        # Đảm bảo có print hoặc assignment answer/result
-        if "print(" not in code and "answer" not in code and "result" not in code:
-            code += "\nprint(0.0)"
+            return "# GENERATION_FAILED"
+        code = re.split(r"\n\s*(?:Explanation|Giải thích|Notes?):", code, maxsplit=1)[0].strip()
+        if "## CÂU HỎI" in code or "QUY TẮC BẮT BUỘC" in code or "```python" in code:
+            return "# GENERATION_FAILED"
+        example_match = re.search(
+            r"```python\s*(.*?)\s*```", self._ONE_EXAMPLE, re.DOTALL | re.IGNORECASE
+        )
+        if example_match is not None:
+            normalize_code = lambda value: re.sub(r"\s+", "", value).casefold()
+            if normalize_code(code) == normalize_code(example_match.group(1)):
+                # A verbatim few-shot echo is not evidence that the model
+                # solved the current question.  Fail closed so the simple
+                # deterministic fallback can handle it.
+                return "# GENERATION_FAILED"
+        if "print(" not in code and not re.search(r"\b(?:answer|result)\s*=", code):
+            return "# GENERATION_FAILED"
         return code
 
-    _PREVIEW_STOPWORDS = {
-        "của", "cho", "và", "vào", "cuối", "trong", "năm", "là", "bao", "nhiêu",
-        "đồng", "triệu", "tỷ", "nghìn", "ngày", "tháng", "đến", "tại", "với",
-        "công", "ty", "ctcp", "tnhh", "tmcp", "ngân", "hàng", "tổng", "tập", "đoàn",
-        "mẹ", "hợp", "nhất", "riêng", "báo", "cáo", "đơn", "vị", "theo", "các",
-    }
+    def _question_keywords(self, question: str) -> list[str]:
+        text = re.sub(r"\b20\d{2}\b", " ", question.lower())
+        tokens = re.findall(r"[\wÀ-ỹ]+", text, flags=re.UNICODE)
+        return [token for token in tokens if len(token) > 1 and token not in self._PREVIEW_STOPWORDS]
 
-    def _question_keywords(self, question: str) -> list:
-        if not question:
-            return []
-        q = re.sub(r'\b20\d{2}\b', ' ', question.lower())
-        q = re.sub(r'\b[A-Z]{2,4}\b', ' ', q)
-        tokens = re.findall(r"[\wÀ-ỹ]+", q, flags=re.UNICODE)
-        return [t for t in tokens if len(t) > 1 and t not in self._PREVIEW_STOPWORDS]
+    @staticmethod
+    def _resolve_path(path: str) -> str | None:
+        candidates = [path]
+        if path.startswith("data/"):
+            candidates.append(path.replace("data/", "", 1))
+        basename = os.path.basename(path)
+        ticker = basename.split("_")[0] if "_" in basename else ""
+        candidates.append(os.path.join("data", "processed_csv", ticker, basename))
+        return next((candidate for candidate in candidates if os.path.exists(candidate)), None)
 
-    def get_csv_preview(self, csv_paths: list, question: str = None) -> str:
-        """
-        Trích xuất context thông minh:
-        - Metadata (Ticker, Năm, Loại BCTC)
-        - Preview head(3)
-        - Dòng chỉ tiêu liên quan trực tiếp
-        """
-        context = []
-        noisy_keywords = {"chi", "phí", "tiền", "số", "dư", "khác", "khoản", "hoạt", "động", "tính", "hỏi", "cho", "biết"}
-        keywords = [k for k in self._question_keywords(question or "") if k not in noisy_keywords]
-        
-        for i, path in enumerate(csv_paths):
-            var_name = f"df{i+1}"
-            real_path = path if os.path.exists(path) else path.replace("data/", "", 1)
-            if not os.path.exists(real_path):
-                bn = os.path.basename(path)
-                ticker = bn.split("_")[0] if "_" in bn else ""
-                cand = os.path.join("data", "processed_csv", ticker, bn)
-                if os.path.exists(cand):
-                    real_path = cand
-                else:
-                    continue
+    def get_csv_preview(
+        self,
+        csv_paths: Sequence[str],
+        question: str = "",
+        *,
+        max_rows_per_table: int = 4,
+        max_tables: int = 4,
+        path_to_variable: Mapping[str, str] | None = None,
+    ) -> str:
+        """Build a compact, query-focused preview without dataframe heads."""
+
+        keywords = self._question_keywords(question)
+        blocks: list[str] = []
+        for index, path in enumerate(list(csv_paths)[:max_tables]):
+            if path_to_variable is None:
+                variable = f"df{index + 1}"
+            else:
+                normalized = path.replace("\\", "/")
+                variable = path_to_variable.get(path) or path_to_variable.get(normalized)
+                if variable is None:
+                    raise ValueError(
+                        f"Evidence path has no official dataframe variable: {path}"
+                    )
+            resolved = self._resolve_path(path)
+            if not resolved:
+                continue
             try:
-                df = pd.read_csv(real_path)
-                flat_name = os.path.basename(path)
-                parts = flat_name.replace(".csv", "").split("_")
-                tk_info = parts[0] if len(parts) > 0 else ""
-                yr_info = parts[1] if len(parts) > 1 else ""
-                type_info = parts[-1] if len(parts) > 2 else ""
+                frame = pd.read_csv(resolved)
+            except Exception as exc:
+                blocks.append(f"{variable} | {os.path.basename(path)} | read_error={type(exc).__name__}")
+                continue
+            if "Chi_tieu" not in frame.columns:
+                blocks.append(f"{variable} | {os.path.basename(path)} | columns={list(frame.columns)}")
+                continue
+            labels = frame["Chi_tieu"].astype(str)
+            scores: list[tuple[int, int]] = []
+            folded = labels.str.casefold()
+            for row_index in frame.index:
+                label = folded.loc[row_index]
+                score = sum(len(keyword) for keyword in keywords if keyword.casefold() in label)
+                if score:
+                    scores.append((score, int(row_index)))
+            selected = [row for _, row in sorted(scores, reverse=True)[:max_rows_per_table]]
+            if not selected:
+                selected = list(frame.index[: min(2, max_rows_per_table)])
+            columns = [name for name in ("Chi_tieu", "Gia_tri", "Don_vi") if name in frame.columns]
+            rows = frame.loc[selected, columns].copy()
+            rows.insert(0, "row", selected)
+            blocks.append(
+                f"{variable} | file={os.path.basename(path)} | rows={len(frame)}\n"
+                + rows.to_csv(index=False).strip()
+            )
+        return "\n\n".join(blocks)
 
-                preview = [
-                    f"--- Variable: {var_name} [Ticker: {tk_info}, Year: {yr_info}, Type: {type_info}] (File: {flat_name}) ---",
-                    f"Columns: {list(df.columns)}",
-                    f"Total rows: {len(df)}",
-                    f"Sample rows:\n{df.head(3).to_string()}"
-                ]
-                
-                if "Chi_tieu" in df.columns:
-                    s = df["Chi_tieu"].astype(str).str.lower()
-                    matched_indices = set()
-                    for kw in keywords:
-                        mask = s.str.contains(kw, case=False, na=False, regex=False)
-                        for idx in df.index[mask]:
-                            matched_indices.add(idx)
-                            
-                    if matched_indices:
-                        sorted_indices = sorted(list(matched_indices))[:10]
-                        rel = df.loc[sorted_indices]
-                        preview.append(f"Relevant indicator rows in {var_name}:\n{rel.to_string()}")
-                        
-                context.append("\n".join(preview) + "\n")
-            except Exception as e:
-                flat_name = f"data/{os.path.basename(path)}"
-                context.append(f"--- Table variable: {var_name} (File: {flat_name}, Error: {e}) ---\n")
-                
-        return "\n".join(context)
+    def _detect_unit_request(self, question: str) -> str | None:
+        return detect_target_unit(question) or None
 
-    def _detect_unit_request(self, question: str):
-        q = question.lower()
-        if "nghìn tỷ" in q:
-            return "nghìn tỷ đồng"
-        if "tỷ đồng" in q:
-            return "tỷ đồng"
-        if "triệu đồng" in q:
-            return "triệu đồng"
-        if "nghìn đồng" in q:
-            return "nghìn đồng"
-        if "phần trăm" in q or "%" in q:
-            return "%"
-        return None
+    def _extract_csv_units(self, csv_paths: Sequence[str]) -> dict[str, str]:
+        """Compatibility helper returning all units, never a dominant guess."""
 
-    # ---- Unit helpers ----
-    _UNIT_VND_FACTOR = {
-        "VND": 1,
-        "Dong": 1,
-        "dong": 1,
-        "Nghin VND": 1_000,
-        "Nghin dong": 1_000,
-        "Trieu VND": 1_000_000,
-        "Trieu dong": 1_000_000,
-        "Ty dong": 1_000_000_000,
-        "%": None,           # không quy đổi
-        "VND/co phieu": 1,
-        "Co phieu": None,
-        "USD": None,
-        "EUR": None,
-        "JPY": None,
-        "mixed": None,
-    }
-
-    _TARGET_VND_FACTOR = {
-        "nghìn tỷ đồng": 1_000_000_000_000,
-        "tỷ đồng": 1_000_000_000,
-        "triệu đồng": 1_000_000,
-        "nghìn đồng": 1_000,
-    }
-
-    def _extract_csv_units(self, csv_paths: list) -> dict:
-        """Trả về dict {var_name: dominant_unit_string} cho từng CSV."""
-        result = {}
-        for i, path in enumerate(csv_paths):
-            var_name = f"df{i+1}"
-            real_path = path if os.path.exists(path) else path.replace("data/", "", 1)
-            if not os.path.exists(real_path):
-                bn = os.path.basename(path)
-                ticker = bn.split("_")[0] if "_" in bn else ""
-                cand = os.path.join("data", "processed_csv", ticker, bn)
-                if os.path.exists(cand):
-                    real_path = cand
-                else:
-                    result[var_name] = ""
-                    continue
+        result: dict[str, str] = {}
+        for index, path in enumerate(csv_paths):
+            resolved = self._resolve_path(path)
+            if not resolved:
+                result[f"df{index + 1}"] = ""
+                continue
             try:
-                df = pd.read_csv(real_path, usecols=["Don_vi"], nrows=20)
-                units = df["Don_vi"].dropna().astype(str).value_counts()
-                result[var_name] = units.index[0] if len(units) > 0 else ""
+                frame = pd.read_csv(resolved, usecols=["Don_vi"])
+                units = list(dict.fromkeys(frame["Don_vi"].dropna().astype(str)))
+                result[f"df{index + 1}"] = " | ".join(units[:8])
             except Exception:
-                result[var_name] = ""
+                result[f"df{index + 1}"] = ""
         return result
 
-    def _build_unit_guidance(self, csv_units: dict, target_unit: str) -> str:
-        """
-        Sinh hướng dẫn quy đổi đơn vị chính xác dựa trên đơn vị gốc THỰC TẾ
-        trong từng CSV và đơn vị yêu cầu của câu hỏi.
-        """
-        if target_unit == "%":
-            return "Câu hỏi yêu cầu TỶ LỆ PHẦN TRĂM (%). Tính tỷ số rồi nhân 100. KHÔNG chia cho bất kỳ hệ số nào."
-
-        target_factor = self._TARGET_VND_FACTOR.get(target_unit)
-        lines = []
-
-        for var_name, src_unit in csv_units.items():
-            src_factor = self._UNIT_VND_FACTOR.get(src_unit)
-            if src_factor is None or target_factor is None:
-                lines.append(f"- {var_name}: đơn vị gốc = '{src_unit}'. Giữ nguyên giá trị, KHÔNG chia/nhân.")
-                continue
-
-            if src_factor == target_factor:
-                lines.append(
-                    f"- {var_name}: đơn vị gốc = '{src_unit}' — CÂU HỎI cũng yêu cầu {target_unit} "
-                    f"→ GIỮ NGUYÊN giá trị. KHÔNG chia thêm."
-                )
-            elif src_factor < target_factor:
-                divisor = target_factor // src_factor
-                lines.append(
-                    f"- {var_name}: đơn vị gốc = '{src_unit}' — câu hỏi yêu cầu {target_unit} "
-                    f"→ CHIA giá trị cho {divisor:_}."
-                )
-            else:
-                multiplier = src_factor // target_factor
-                lines.append(
-                    f"- {var_name}: đơn vị gốc = '{src_unit}' — câu hỏi yêu cầu {target_unit} "
-                    f"→ NHÂN giá trị với {multiplier:_}."
-                )
-
-        if not lines:
-            if target_unit:
-                return f"Câu hỏi yêu cầu: {target_unit}. Kiểm tra cột Don_vi trong bảng để quy đổi phù hợp."
-            return "Giữ nguyên đơn vị gốc trong bảng."
-
-        header = f"Câu hỏi yêu cầu đáp án theo: {target_unit}.\n" if target_unit else "Giữ nguyên đơn vị gốc:\n"
-        return header + "\n".join(lines)
-
-
-    _SYSTEM_PROMPT = """\
-Bạn là chuyên gia phân tích dữ liệu tài chính BCTC Việt Nam bằng Python Pandas.
-
-QUY TẮC BẮT BUỘC:
-- Trả lời bằng ĐÚNG MỘT code block ```python ... ``` duy nhất.
-- Các DataFrame df1, df2, ... ĐÃ ĐƯỢC NẠP SẴN. KHÔNG import thư viện. KHÔNG dùng pd.read_csv().
-- Luôn kiểm tra bảng nào chứa chỉ tiêu cần tìm. Nếu chỉ tiêu không có trong df1, hãy tìm trong df2 hoặc các bảng khác.
-- Tìm chỉ tiêu trong cột 'Chi_tieu' bằng .str.contains(r'...', case=False, na=False).
-- Lấy giá trị số từ cột 'Gia_tri': float(row['Gia_tri']).
-- Nếu bảng có nhiều cột số khác (ví dụ: tỷ lệ %, số lượng), dùng cột phù hợp với câu hỏi.
-- Kết thúc bằng print(answer) — answer là MỘT số float/int duy nhất.
-
-TUYỆT ĐỐI KHÔNG:
-- Viết "# Your code here" hoặc bất kỳ placeholder nào.
-- Lặp lại code block nhiều lần.
-- Viết text giải thích bên ngoài code block.
-- Để code block trống hoặc chỉ chứa comment."""
-
-    def _build_messages(self, question, csv_paths, error_log=None):
-        preview = self.get_csv_preview(csv_paths, question)
-        target_unit = self._detect_unit_request(question)
-        csv_units = self._extract_csv_units(csv_paths)
-        unit_guidance = self._build_unit_guidance(csv_units, target_unit)
-
-        error_context = ""
-        if error_log:
-            error_context = f"""
-LỖI TỪ LẦN CHẠY TRƯỚC (cần sửa):
-```
-{error_log[:500]}
-```
-Viết lại code mới sửa lỗi trên. KHÔNG lặp lại code cũ.
-"""
-
-        user_content = f"""## BẢNG DỮ LIỆU (đã load sẵn):
-{preview}
-
-## HƯỚNG DẪN QUY ĐỔI ĐƠN VỊ (BẮT BUỘC TUÂN THỦ):
-{unit_guidance}
-
-QUAN TRỌNG: Đọc kỹ đơn vị gốc ở trên. Nếu đơn vị gốc là 'Trieu VND' và câu hỏi yêu cầu 'triệu đồng' thì GIỮ NGUYÊN giá trị, KHÔNG chia thêm.
-
-## VÍ DỤ:
-
-Ví dụ 1 — Tra cứu đơn giản (đơn vị gốc VND, hỏi tỷ đồng → chia 1_000_000_000):
-```python
-m = df1[df1['Chi_tieu'].str.contains(r'doanh thu thuần', case=False, na=False)]
-val = float(m.iloc[0]['Gia_tri'])
-answer = val / 1_000_000_000
-print(answer)
-```
-
-Ví dụ 2 — Chỉ tiêu nằm ở bảng thứ 2 (df2):
-```python
-m = df2[df2['Chi_tieu'].str.contains(r'phải thu ngắn hạn', case=False, na=False)]
-val = float(m.iloc[0]['Gia_tri'])
-answer = val / 1_000_000_000
-print(answer)
-```
-
-Ví dụ 3 — Đơn vị gốc Trieu VND, hỏi triệu đồng → GIỮ NGUYÊN:
-```python
-m = df1[df1['Chi_tieu'].str.contains(r'cho vay khách hàng', case=False, na=False)]
-answer = float(m.iloc[0]['Gia_tri'])
-print(answer)
-```
-
-Ví dụ 4 — Đơn vị gốc Trieu VND, hỏi tỷ đồng → chia 1000:
-```python
-m = df1[df1['Chi_tieu'].str.contains(r'tổng tài sản', case=False, na=False)]
-answer = float(m.iloc[0]['Gia_tri']) / 1000
-print(answer)
-```
-
-Ví dụ 5 — Tính tỷ lệ % / Biên lợi nhuận liên bảng (df1=KQKD, df2=KQKD hoặc CĐKT):
-```python
-m_lnst = df1[df1['Chi_tieu'].str.contains(r'lợi nhuận sau thuế', case=False, na=False)]
-m_dtt = df1[df1['Chi_tieu'].str.contains(r'doanh thu thuần', case=False, na=False)]
-answer = float(m_lnst.iloc[0]['Gia_tri']) / float(m_dtt.iloc[0]['Gia_tri']) * 100
-print(answer)
-```
-
-Ví dụ 6 — Tăng trưởng qua các năm (df1 = năm 2020, df2 = năm 2021):
-```python
-v2020 = float(df1[df1['Chi_tieu'].str.contains(r'doanh thu thuần', case=False, na=False)].iloc[0]['Gia_tri'])
-v2021 = float(df2[df2['Chi_tieu'].str.contains(r'doanh thu thuần', case=False, na=False)].iloc[0]['Gia_tri'])
-answer = (v2021 - v2020) / v2020 * 100
-print(answer)
-```
-
-Ví dụ 7 — So sánh giữa 2 công ty (df1 = Ticker A, df2 = Ticker B):
-```python
-v_a = float(df1[df1['Chi_tieu'].str.contains(r'tổng tài sản', case=False, na=False)].iloc[0]['Gia_tri'])
-v_b = float(df2[df2['Chi_tieu'].str.contains(r'tổng tài sản', case=False, na=False)].iloc[0]['Gia_tri'])
-answer = (v_a - v_b) / 1_000_000_000
-print(answer)
-```
-{error_context}
-## CÂU HỎI:
-{question}
-"""
-        return [
-            {"role": "system", "content": self._SYSTEM_PROMPT},
-            {"role": "user", "content": user_content},
-        ]
-
-    def _generate_transformers(self, messages):
-        text = self.tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
+    def _build_unit_guidance(self, csv_units: Mapping[str, str], target_unit: str | None) -> str:
+        del csv_units
+        requested = target_unit or "đơn vị của dòng nguồn"
+        return (
+            f"Đơn vị đích: {requested}. Luôn đọc Don_vi của đúng row được chọn; "
+            "không suy từ 20 dòng đầu. trăm tỷ=1e11 VND, nghìn tỷ=1e12 VND; "
+            "% là tỷ số×100, điểm phần trăm là hiệu hai tỷ lệ, lần không phải tiền."
         )
-        inputs = self.tokenizer(text, return_tensors="pt", truncation=True, max_length=6144)
+
+    def _render_chat(self, messages: Sequence[Mapping[str, str]]) -> str:
+        if self.tokenizer is not None and hasattr(self.tokenizer, "apply_chat_template"):
+            return self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        return "\n".join(f"{message['role']}: {message['content']}" for message in messages)
+
+    def _count_tokens(self, messages: Sequence[Mapping[str, str]]) -> int:
+        rendered = self._render_chat(messages)
+        if self.tokenizer is not None:
+            encoded = self.tokenizer(rendered, add_special_tokens=False, truncation=False)
+            ids = encoded["input_ids"] if isinstance(encoded, Mapping) else encoded
+            return len(ids)
+        return (len(rendered.encode("utf-8")) + 2) // 3
+
+    def _build_messages(
+        self,
+        question: str,
+        csv_paths: Sequence[str],
+        error_log: str | None = None,
+        *,
+        semantic_context: str | None = None,
+        path_to_variable: Mapping[str, str] | None = None,
+    ) -> list[dict[str, str]]:
+        # Never let a failed build expose the previous question's report to
+        # pipeline diagnostics.
+        self.last_prompt_report = None
+        if not question or not question.strip():
+            raise ValueError("question must be non-empty")
+        evidence = semantic_context if semantic_context is not None else self.get_csv_preview(
+            csv_paths, question, path_to_variable=path_to_variable
+        )
+        unit_guidance = self._build_unit_guidance({}, self._detect_unit_request(question))
+        error = f"\nLỗi lần trước (chỉ sửa lỗi này): {error_log[:300]}" if error_log else ""
+        prefix = (
+            f"## CÂU HỎI NGUYÊN VẸN\n{question}\n\n"
+            f"## ĐƠN VỊ\n{unit_guidance}\n\n"
+            f"{self._ONE_EXAMPLE}\n\n## EVIDENCE RÚT GỌN\n"
+        )
+        suffix = f"{error}\n\nChỉ xuất code giải đúng câu hỏi nguyên vẹn ở đầu prompt."
+
+        def messages_for(current_evidence: str) -> list[dict[str, str]]:
+            return [
+                {"role": "system", "content": self._SYSTEM_PROMPT},
+                {"role": "user", "content": prefix + current_evidence + suffix},
+            ]
+
+        immutable_tokens = self._count_tokens(messages_for(""))
+        if immutable_tokens > self.prompt_token_budget:
+            raise PromptBudgetError(
+                f"Question and constraints require {immutable_tokens} tokens, budget={self.prompt_token_budget}"
+            )
+        candidate = evidence
+        messages = messages_for(candidate)
+        truncated = False
+        while candidate and self._count_tokens(messages) > self.prompt_token_budget:
+            truncated = True
+            candidate = candidate[: max(0, int(len(candidate) * 0.80))]
+            messages = messages_for(candidate + "\n[EVIDENCE_TRUNCATED]")
+        count = self._count_tokens(messages)
+        if count > self.prompt_token_budget:
+            raise PromptBudgetError(f"Unable to fit evidence within {self.prompt_token_budget} tokens")
+        if question not in messages[1]["content"]:
+            raise AssertionError("Question was altered while constructing prompt")
+        self.last_prompt_report = PromptReport(
+            token_budget=self.prompt_token_budget,
+            estimated_tokens=count,
+            question_preserved=True,
+            evidence_truncated=truncated,
+            raw_csv_tables=0 if semantic_context is not None else min(len(csv_paths), 4),
+            semantic_context=semantic_context is not None,
+        )
+        return messages
+
+    def _generate_transformers(self, messages: Sequence[Mapping[str, str]]) -> str:
+        text = self._render_chat(messages)
+        inputs = self.tokenizer(text, return_tensors="pt", truncation=False)
+        prompt_length = int(inputs["input_ids"].shape[1])
+        if prompt_length > self.prompt_token_budget:
+            raise PromptBudgetError(
+                f"Tokenizer produced {prompt_length} tokens after budget guard ({self.prompt_token_budget})"
+            )
         first_device = next(iter(self.model.parameters())).device
-        inputs = {k: v.to(first_device) for k, v in inputs.items()}
+        inputs = {name: value.to(first_device) for name, value in inputs.items()}
         with torch.no_grad():
             outputs = self.model.generate(
-                **inputs, max_new_tokens=self.max_new_tokens,
-                do_sample=False, temperature=1.0,
+                **inputs,
+                max_new_tokens=self.max_new_tokens,
+                do_sample=False,
                 pad_token_id=self.tokenizer.eos_token_id,
             )
-        new_tokens = outputs[0][inputs["input_ids"].shape[1]:]
-        return self.tokenizer.decode(new_tokens, skip_special_tokens=True)
+        return self.tokenizer.decode(outputs[0][prompt_length:], skip_special_tokens=True)
 
-    def _generate_ollama(self, messages):
+    def _generate_ollama(self, messages: Sequence[Mapping[str, str]]) -> str:
         if _requests is None:
             raise ImportError("requests not installed for ollama backend")
         payload = {
-            "model": self.model_name, "messages": messages, "stream": False,
-            "options": {"num_ctx": 4096, "num_predict": self.max_new_tokens},
+            "model": self.model_name,
+            "messages": list(messages),
+            "stream": False,
+            "options": {
+                "num_ctx": self.prompt_token_budget + self.max_new_tokens,
+                "num_predict": self.max_new_tokens,
+            },
         }
-        res = _requests.post(self.api_url, json=payload, timeout=None)
-        res.raise_for_status()
-        data = res.json()
-        return data.get("message", {}).get("content", data.get("response", ""))
+        response = _requests.post(self.api_url, json=payload, timeout=None)
+        response.raise_for_status()
+        body = response.json()
+        return body.get("message", {}).get("content", body.get("response", ""))
 
-    def generate_code(self, question, csv_paths, error_log=None):
-        messages = self._build_messages(question, csv_paths, error_log)
+    def generate_code(
+        self,
+        question: str,
+        csv_paths: Sequence[str],
+        error_log: str | None = None,
+        *,
+        semantic_context: str | None = None,
+        path_to_variable: Mapping[str, str] | None = None,
+    ) -> str:
+        messages = self._build_messages(
+            question,
+            csv_paths,
+            error_log,
+            semantic_context=semantic_context,
+            path_to_variable=path_to_variable,
+        )
         try:
-            if self.backend == "transformers":
-                raw_text = self._generate_transformers(messages)
-            else:
-                raw_text = self._generate_ollama(messages)
-            print(f"[Agent RAW] {raw_text[:500]}")
-            code = self.clean_response(raw_text)
-            if "GENERATION_FAILED" in code:
-                print(f"[Agent] clean_response → GENERATION_FAILED. Full raw ({len(raw_text)} chars):\n{raw_text[:1000]}")
-            else:
-                print(f"[Agent] Extracted code:\n{code}")
-            return code
-        except Exception as e:
-            print(f"[Agent Warning] Error generating code ({self.backend}): {e}")
-            return 'import pandas as pd\nprint(0.0)'
+            raw = self._generate_transformers(messages) if self.backend == "transformers" else self._generate_ollama(messages)
+            return self.clean_response(raw)
+        except Exception as exc:
+            print(f"[Agent Warning] generation failed ({self.backend}): {exc}")
+            return "# GENERATION_FAILED"
 
-    def execute_code(self, code, csv_paths=None):
-        """
-        Thực thi code Pandas. Nạp sẵn các biến df1, df2, ... từ csv_paths vào scope
-        để hỗ trợ cả biểu thức đơn (eval) lẫn script đầy đủ (exec).
-        """
-        old_stdout = sys.stdout
-        new_stdout = io.StringIO()
-        sys.stdout = new_stdout
-        orig_read_csv = pd.read_csv
-
-        def _custom_read_csv(filepath_or_buffer, *args, **kwargs):
-            if isinstance(filepath_or_buffer, str) and not os.path.exists(filepath_or_buffer):
-                bn = os.path.basename(filepath_or_buffer)
-                ticker = bn.split("_")[0] if "_" in bn else ""
-                cand = os.path.join("data", "processed_csv", ticker, bn)
-                if os.path.exists(cand):
-                    filepath_or_buffer = cand
-            return orig_read_csv(filepath_or_buffer, *args, **kwargs)
-
-        pd.read_csv = _custom_read_csv
+    def execute_code(
+        self,
+        code: str,
+        csv_paths: Sequence[str] | None = None,
+        *,
+        path_to_variable: Mapping[str, str] | None = None,
+    ):
+        if not code or "GENERATION_FAILED" in code:
+            return None, "Generation failed; no executable query was produced."
+        old_stdout, capture = sys.stdout, io.StringIO()
+        sys.stdout = capture
         try:
-            exec_globals = {"pd": pd, "os": os, "re": re}
-            
-            # Load DataFrames for df1, df2, ...
-            if csv_paths:
-                for i, p in enumerate(csv_paths):
-                    real_p = p if os.path.exists(p) else p.replace("data/", "", 1)
-                    if not os.path.exists(real_p):
-                        bn = os.path.basename(p)
-                        ticker = bn.split("_")[0] if "_" in bn else ""
-                        cand = os.path.join("data", "processed_csv", ticker, bn)
-                        if os.path.exists(cand):
-                            real_p = cand
-                    if os.path.exists(real_p):
-                        try:
-                            exec_globals[f"df{i+1}"] = pd.read_csv(real_p)
-                        except Exception:
-                            pass
-
-            # Thử eval trước nếu là biểu thức 1 dòng
-            code_clean = code.strip()
-            if "\n" not in code_clean and not code_clean.startswith("import") and not code_clean.startswith("print"):
-                try:
-                    val = eval(code_clean, exec_globals)
-                    sys.stdout = old_stdout
-                    pd.read_csv = orig_read_csv
-                    return str(val), None
-                except Exception:
-                    pass
-
-            exec(code, exec_globals)
-            sys.stdout = old_stdout
-            pd.read_csv = orig_read_csv
-            result = new_stdout.getvalue().strip()
-            if not result:
-                # Kiểm tra nếu có biến result hoặc answer trong globals
-                if "result" in exec_globals:
-                    return str(exec_globals["result"]), None
-                if "answer" in exec_globals:
-                    return str(exec_globals["answer"]), None
-                return None, "Output rỗng. Đảm bảo có print(kết_quả) hoặc trả về giá trị."
-            last_line = result.strip().split("\n")[-1].strip()
-            return last_line, None
+            scope = {"pd": pd, "re": re}
+            for index, path in enumerate(csv_paths or []):
+                resolved = self._resolve_path(path)
+                if resolved:
+                    if path_to_variable is None:
+                        variable = f"df{index + 1}"
+                    else:
+                        normalized = path.replace("\\", "/")
+                        variable = path_to_variable.get(path) or path_to_variable.get(normalized)
+                        if variable is None:
+                            return None, f"Evidence path has no official dataframe variable: {path}"
+                    scope[variable] = pd.read_csv(resolved)
+            stripped = code.strip()
+            if "\n" not in stripped and not stripped.startswith(("print", "import")):
+                value = eval(stripped, scope)
+                return str(value), None
+            exec(code, scope)
+            output = capture.getvalue().strip()
+            if output:
+                return output.splitlines()[-1].strip(), None
+            for name in ("answer", "result"):
+                if name in scope:
+                    return str(scope[name]), None
+            return None, "Output rỗng; cần answer/result hoặc print(answer)."
         except Exception:
-            sys.stdout = old_stdout
-            pd.read_csv = orig_read_csv
             return None, traceback.format_exc()
+        finally:
+            sys.stdout = old_stdout
 
-    def run_agent(self, question, csv_paths, max_retries=3):
-        """Trả về: (answer_str, pandas_code_str, error_str_or_None)"""
-        if not csv_paths:
-            return "0.0", "", "No CSV files found by retriever."
+    def run_agent(
+        self,
+        question: str,
+        csv_paths: Sequence[str],
+        max_retries: int = 3,
+        *,
+        semantic_context: str | None = None,
+        path_to_variable: Mapping[str, str] | None = None,
+    ):
+        if not csv_paths and not semantic_context:
+            return None, "", "No evidence found by retriever."
         error_log = None
         last_code = ""
-        for attempt in range(max_retries):
-            code = self.generate_code(question, csv_paths, error_log)
-            last_code = code
-            ans, err = self.execute_code(code, csv_paths=csv_paths)
-            print(f"[Agent] Attempt {attempt+1}/{max_retries}: ans={ans}, err={err[:200] if err else None}")
-            if err is None and ans is not None:
-                return ans, code, None
-            error_log = err
-            print(f"[Agent Self-Correction] Attempt {attempt+1}/{max_retries} failed.")
-        return "0.0", last_code, f"Failed after {max_retries} retries. Last error: {error_log}"
+        for _ in range(max_retries):
+            last_code = self.generate_code(
+                question,
+                csv_paths,
+                error_log,
+                semantic_context=semantic_context,
+                path_to_variable=path_to_variable,
+            )
+            answer, error = self.execute_code(
+                last_code,
+                csv_paths,
+                path_to_variable=path_to_variable,
+            )
+            if error is None and answer is not None:
+                return answer, last_code, None
+            error_log = error
+        return None, last_code, f"Failed after {max_retries} retries. Last error: {error_log}"
 
 
-if __name__ == "__main__":
-    agent = PandasAgent(backend="ollama", model_name="deepseek-r1:14b")
-    test_units = [
-        ("Doanh thu thuần năm 2022 là bao nhiêu tỷ đồng?", "tỷ đồng"),
-        ("Lợi nhuận sau thuế là bao nhiêu triệu đồng?", "triệu đồng"),
-        ("Tỷ lệ sở hữu là bao nhiêu %?", "%"),
-    ]
-    print("=== Unit detection test ===")
-    for q, expected in test_units:
-        result = agent._detect_unit_request(q)
-        status = "✓" if result == expected else f"✗ (got {result})"
-        print(f"  {status} '{q[:50]}...' -> {result}")
-    print(f"\n=== Agent ready (backend={agent.backend}) ===")
-
+__all__ = ["PandasAgent", "PromptBudgetError", "PromptReport"]

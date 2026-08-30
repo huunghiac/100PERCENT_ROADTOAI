@@ -338,6 +338,17 @@ def detect_unit(text: object) -> str:
         return ""
     if re.search(r"(?i)(vnd|dong|đồng)\s*/\s*(co phieu|cổ phiếu)", raw) or "eps" in folded:
         return "VND/co phieu"
+    # Longest/specific-first matching is semantically significant.  In
+    # particular, ``tram ty dong`` is 100 times ``ty dong`` and must not fall
+    # through to the shorter suffix.
+    if "nghin ty dong" in folded or "ngan ty dong" in folded or "nghin ty vnd" in folded:
+        return "Nghin ty dong"
+    if "tram ty dong" in folded or "tram ty vnd" in folded:
+        return "Tram ty dong"
+    if "trieu usd" in folded:
+        return "Trieu USD"
+    if "nghin usd" in folded or "ngan usd" in folded:
+        return "Nghin USD"
     if "trieu vnd" in folded or "trieu vnđ" in folded:
         return "Trieu VND"
     if "nghin vnd" in folded or "ngan vnd" in folded:
@@ -358,6 +369,10 @@ def detect_unit(text: object) -> str:
         return "USD"
     if re.search(r"(?i)(?:EUR)\b", raw) or "euro" in folded:
         return "EUR"
+    if "diem phan tram" in folded or re.search(r"(?i)\bpp\b", raw):
+        return "Diem phan tram"
+    if re.search(r"\blan\b", folded):
+        return "Lan"
     if "co phieu" in folded and any(token in folded for token in ("so luong", "binh quan", "don vi")):
         return "Co phieu"
     compact_raw = raw.replace(" ", "")
@@ -475,6 +490,18 @@ def canonical_table_slug(title: str) -> str:
     core_prefix = re.sub(
         r"^\s*(?:phu luc\s+)?(?:\d+(?:\.\d+)*[.)]?\s+)?", "", folded
     )
+    # Some OCR reports put the legal company name on the same line immediately
+    # before a core-statement title.  Accept that narrow corporate prefix while
+    # still rejecting note titles such as "ghi nhan trong bao cao ket qua...".
+    if re.match(r"^(?:cong ty|tap doan|tong cong ty|ngan hang)\b", core_prefix):
+        embedded_core = re.search(
+            r"\b(?:bang can doi ke toan|bao cao tinh hinh tai chinh|"
+            r"bao cao (?:ket qua hoat dong kinh doanh|ket qua kinh doanh|"
+            r"(?:luu|lu) chuyen tien te|thay doi von chu so huu))\b",
+            core_prefix,
+        )
+        if embedded_core and embedded_core.start() <= 140:
+            core_prefix = core_prefix[embedded_core.start():]
     if re.match(r"^(?:bang\s+)?can doi ke toan\b|^bang can doi ke toan\b", core_prefix):
         return "BangCanDoiKeToan"
     if re.match(r"^(?:bao cao\s+)?tinh hinh tai chinh\b", core_prefix):
@@ -622,11 +649,21 @@ def _header_band_rows(rows: Sequence[Sequence[str]], limit: int = 8) -> list[lis
             if parsed is None:
                 continue
             folded = fold_text(cell)
-            is_year = bool(re.fullmatch(r"(?:19|20)\d{2}", folded))
+            # ``parse_number`` intentionally accepts values carrying a unit,
+            # so period headers such as ``2022 VND`` would otherwise be
+            # mistaken for the first data row.  Strip only a recognized unit
+            # suffix here; arbitrary text after a number remains body data.
+            period_token = re.sub(
+                r"\s+(?:(?:nghin|ngan|trieu|tram\s+ty|ty)\s+)?"
+                r"(?:vnd|dong|usd|eur|jpy)$|\s*%$",
+                "",
+                folded,
+            ).strip()
+            is_year = bool(re.fullmatch(r"(?:19|20)\d{2}", period_token))
             is_date = bool(
                 re.fullmatch(
                     r"(?:0?[1-9]|[12]\d|3[01])[./-](?:0?[1-9]|1[0-2])[./-](?:19|20)\d{2}",
-                    folded,
+                    period_token,
                 )
             )
             if not (is_year or is_date):
@@ -1264,6 +1301,13 @@ def _is_header_label(label: str) -> bool:
 def _resolve_unit_for_column(
     candidate: RawTable, decision: ValueColumnDecision
 ) -> tuple[str, str, str]:
+    selected_header = fold_text(decision.header)
+    if (
+        "so luong" in selected_header
+        and "co phieu" in fold_text(candidate.title)
+        and "lai tren co phieu" not in fold_text(candidate.title)
+    ):
+        return "Co phieu", "semantic_header", "high"
     if candidate.unit and candidate.unit_source in {"caption", "title"}:
         return candidate.unit, candidate.unit_source, candidate.unit_confidence
     header_unit = detect_unit(decision.header)
@@ -1281,6 +1325,44 @@ def _resolve_unit_for_column(
         confidence = "high" if explicit and distance <= 5 else "medium"
         return unit, "preceding", confidence
     return "", "unknown", "low"
+
+
+def _prefer_quantity_column(
+    candidate: RawTable, decision: ValueColumnDecision
+) -> ValueColumnDecision:
+    """Prefer the current share-count axis when a share table also has VND."""
+
+    title = fold_text(candidate.title)
+    if "co phieu" not in title or "lai tren co phieu" in title:
+        return decision
+    eligible = []
+    for item in decision.candidates:
+        header = fold_text(item.get("header", ""))
+        signals = set(item.get("signals", []))
+        if "so luong" not in header:
+            continue
+        if signals.intersection({"prior_period_label", "period_start_date"}):
+            continue
+        if not signals.intersection(
+            {"exact_report_year", "period_end_date", "current_period_label"}
+        ):
+            continue
+        eligible.append(item)
+    if not eligible:
+        return decision
+    selected = max(
+        eligible, key=lambda item: (float(item["score"]), -int(item["index"]))
+    )
+    header = str(selected["header"])
+    return ValueColumnDecision(
+        int(selected["index"]),
+        "semantic_share_quantity",
+        header,
+        header,
+        "high",
+        decision.candidates,
+        list(dict.fromkeys((*decision.warnings, "selected_share_quantity_axis"))),
+    )
 
 
 def _split_unique_thousands_concatenation(raw_value: str) -> list[str]:
@@ -1431,7 +1513,9 @@ def convert_candidate(
         _trace_suspicious_cells(candidate, metadata, diagnostics)
         return None, reason
 
-    column_decision = decision or decide_value_column(candidate.rows, report_year)
+    column_decision = decision or _prefer_quantity_column(
+        candidate, decide_value_column(candidate.rows, report_year)
+    )
     value_column = column_decision.column
     if value_column is None:
         _trace_suspicious_cells(candidate, metadata, diagnostics)

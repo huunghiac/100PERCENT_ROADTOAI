@@ -12,3 +12,12 @@ submission.json
 submission.zip
 *.log
 
+# Local test dependencies and scratch directories
+.pytest_cache/
+.pytest_deps/
+.pytest_tmp*/
+.test-deps/
+
+# Generated diagnostics, submissions, and re-extracted acceptance evidence
+# Previously tracked quality reports remain tracked.
+data/quality_reports/

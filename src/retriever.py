@@ -2,8 +2,76 @@ import os
 import re
 import json
 import glob
+import itertools
+import unicodedata
+from dataclasses import dataclass, field
+from typing import Any, Iterable
 import pandas as pd
-from rank_bm25 import BM25Okapi
+
+try:
+    from rank_bm25 import BM25Okapi
+except ImportError:  # Lightweight deterministic fallback for incomplete envs.
+    class BM25Okapi:  # type: ignore[override]
+        def __init__(self, corpus):
+            self.corpus = [list(doc) for doc in corpus]
+
+        def get_scores(self, query):
+            query_set = set(query)
+            return [
+                sum(1.0 + (tokens.count(token) / max(len(tokens), 1)) for token in query_set if token in tokens)
+                for tokens in self.corpus
+            ]
+
+try:
+    from .metric_registry import DEFAULT_REGISTRY, MetricRegistry, normalize_metric_text
+    from .question_planner import QuestionPlan, QuestionPlanner, QuestionType, Scope
+except ImportError:  # Legacy imports execute modules from src/ as top-level.
+    from metric_registry import DEFAULT_REGISTRY, MetricRegistry, normalize_metric_text
+    from question_planner import QuestionPlan, QuestionPlanner, QuestionType, Scope
+
+
+@dataclass(frozen=True)
+class MissingRequirement:
+    ticker: str
+    year: str
+    metric: str
+    statement_types: tuple[str, ...]
+    reason: str = "no_matching_table"
+
+
+@dataclass
+class EvidenceBundle:
+    """Stable metric-aware retrieval result with no global top-k truncation."""
+
+    structured: dict[str, dict[str, dict[str, list[str]]]] = field(default_factory=dict)
+    metric_paths: dict[str, list[str]] = field(default_factory=dict)
+    paths: list[str] = field(default_factory=list)
+    path_to_variable: dict[str, str] = field(default_factory=dict)
+    variable_to_path: dict[str, str] = field(default_factory=dict)
+    missing_requirements: list[MissingRequirement] = field(default_factory=list)
+
+    @staticmethod
+    def requirement_key(ticker: str, year: str, metric: str) -> str:
+        return f"{ticker}|{year}|{metric}"
+
+    @property
+    def complete(self) -> bool:
+        return not self.missing_requirements
+
+    def add(self, ticker: str, year: str, metric: str, statement: str, path: str) -> None:
+        path = path.replace("\\", "/")
+        key = self.requirement_key(ticker, year, metric)
+        self.metric_paths.setdefault(key, [])
+        if path not in self.metric_paths[key]:
+            self.metric_paths[key].append(path)
+        statement_paths = self.structured.setdefault(ticker, {}).setdefault(year, {}).setdefault(statement, [])
+        if path not in statement_paths:
+            statement_paths.append(path)
+        if path not in self.path_to_variable:
+            variable = f"df{len(self.paths) + 1}"
+            self.paths.append(path)
+            self.path_to_variable[path] = variable
+            self.variable_to_path[variable] = path
 
 
 class TableRetriever:
@@ -18,18 +86,26 @@ class TableRetriever:
         """
         self.csv_dir = csv_dir
         self.manifest = {}
+        self.manifest_available = False
+        self.manifest_error = ""
         self.line_map = {}
         self.name_to_ticker = {}
         self.ticker_set = set()
+        self._labels_cache = {}
         self._load_manifest(manifest_path)
         self._load_line_map(line_map_path)
         self._build_name_index()
 
     def _load_manifest(self, path: str):
         if not os.path.exists(path):
+            self.manifest_error = f"manifest_missing:{path}"
             return
         with open(path, "r", encoding="utf-8") as f:
-            for line in f:
+            first = f.readline()
+            if first.startswith("version https://git-lfs.github.com/spec/"):
+                self.manifest_error = "manifest_is_unresolved_git_lfs_pointer"
+                return
+            for line in itertools.chain([first], f):
                 line = line.strip()
                 if not line:
                     continue
@@ -39,6 +115,9 @@ class TableRetriever:
                     self.manifest[csv_path] = entry
                 except json.JSONDecodeError:
                     continue
+        self.manifest_available = bool(self.manifest)
+        if not self.manifest_available:
+            self.manifest_error = "manifest_contains_no_valid_entries"
 
     def _load_line_map(self, path: str):
         if not os.path.exists(path):
@@ -58,10 +137,42 @@ class TableRetriever:
 
     # ---- Company-name → ticker index (built once) ----
     def _normalize_name(self, name: str) -> str:
-        n = name.strip().lower()
-        n = re.sub(r'\s*-\s*(ctcp|tnhh|tjsc)\s*$', '', n)
-        n = re.sub(r'^(ctcp|tnhh|tổng công ty cổ phần|tổng công ty|công ty cổ phần|công ty)\s+', '', n)
-        return n.strip()
+        n = unicodedata.normalize("NFKC", str(name)).casefold().replace("đ", "d")
+        n = "".join(c for c in unicodedata.normalize("NFD", n) if unicodedata.category(c) != "Mn")
+        n = re.sub(r"[^a-z0-9]+", " ", n)
+        n = re.sub(r'\s*-\s*(ctcp|tnhh|tjsc|jsc)\s*$', '', n)
+        n = re.sub(
+            r'^(?:ctcp|tnhh|ngan hang tmcp|ngan hang|tong cong ty co phan|tong cong ty|cong ty co phan|cong ty)\s+',
+            '', n,
+        )
+        return re.sub(r"\s+", " ", n).strip()
+
+    def _name_aliases(self, raw_name: str) -> set[str]:
+        """Generate conservative natural aliases from the official company name."""
+        normalized = self._normalize_name(raw_name)
+        aliases = {normalized} if normalized else set()
+        generic = {
+            "tap", "doan", "tong", "cong", "ty", "co", "phan", "tnhh", "ngan", "hang",
+            "thuong", "mai", "dau", "tu", "phat", "trien", "viet", "nam", "thep",
+        }
+        tokens = normalized.split()
+        meaningful = [token for token in tokens if token not in generic]
+        # Two-or-more meaningful words are specific enough for bare public names
+        # such as Hoa Sen and Nam Kim.  A single token is kept only if long.
+        if len(meaningful) >= 2:
+            aliases.add(" ".join(meaningful))
+            aliases.add(" ".join(meaningful[-2:]))
+            if len(meaningful) >= 3:
+                aliases.add(" ".join(meaningful[-3:]))
+        elif len(meaningful) == 1 and len(meaningful[0]) >= 6:
+            aliases.add(meaningful[0])
+        # Strip common leading business descriptors but keep the remainder.
+        stripped = re.sub(
+            r"^(?:tap doan|tong cong ty|ngan hang|cong ty|dau tu|phat trien|thep)\s+", "", normalized
+        )
+        if len(stripped.split()) >= 2:
+            aliases.add(stripped)
+        return {alias for alias in aliases if len(alias) >= 3}
 
     def _build_name_index(self):
         seen = {}
@@ -99,8 +210,8 @@ class TableRetriever:
 
         for ticker, names in seen.items():
             for raw_name in names:
-                self.name_to_ticker[self._normalize_name(raw_name)] = ticker
-                self.name_to_ticker[raw_name.lower().strip()] = ticker
+                for alias in self._name_aliases(raw_name):
+                    self.name_to_ticker[alias] = ticker
 
     # ---- Hardcoded ticker aliases for entities that manifest name_to_ticker misses ----
     _TICKER_ALIASES = {
@@ -141,6 +252,11 @@ class TableRetriever:
         "masan": "MSN",
         "tập đoàn hòa phát": "HPG",
         "hòa phát": "HPG",
+        "hoà phát": "HPG",
+        "hoa sen": "HSG",
+        "tập đoàn hoa sen": "HSG",
+        "nam kim": "NKG",
+        "thép nam kim": "NKG",
     }
 
     # ---- Noise tickers ----
@@ -148,11 +264,11 @@ class TableRetriever:
         "CTCP", "TNHH", "TMCP", "VND", "USD", "BTC", "JSC", "HĐQT",
         "TCTD", "NHNN", "CKPT", "CNTT",
         "EPS", "CFO", "DOH", "LDR", "ROE", "ROA", "NIM", "CIR",
-        "CAR", "NPL", "COD",
+        "CAR", "NPL", "COD", "CAGR", "COGS", "EBIT", "EBITDA", "SGA",
     }
 
     def _extract_ticker_from_name(self, question: str):
-        q_lower = question.lower()
+        q_lower = self._normalize_name(question)
         best_ticker = None
         best_len = 0
         for name_key, ticker in self.name_to_ticker.items():
@@ -166,47 +282,48 @@ class TableRetriever:
         Trích xuất TẤT CẢ Tickers và Năm từ câu hỏi (hỗ trợ so sánh nhiều công ty / nhiều năm).
         Ưu tiên: (1) hardcoded alias (longest match) → (2) paren ticker → (3) manifest name → (4) bare uppercase.
         """
-        tickers = []
-        q_lower = question.lower()
+        positioned = []
+        q_normalized = self._normalize_name(question)
 
-        # 0. Hardcoded aliases — longest match first (chống nhầm "Chứng khoán FPT" → FPT thay vì FTS)
+        # 0. Curated aliases, accent-insensitive and boundary-aware.
         alias_sorted = sorted(self._TICKER_ALIASES.items(), key=lambda x: len(x[0]), reverse=True)
+        covered_spans = []
         for alias_name, alias_ticker in alias_sorted:
-            if alias_name in q_lower and alias_ticker not in tickers:
-                tickers.append(alias_ticker)
+            alias_norm = self._normalize_name(alias_name)
+            match = re.search(rf"(?<![a-z0-9]){re.escape(alias_norm)}(?![a-z0-9])", q_normalized)
+            if match:
+                positioned.append((match.start(), -len(alias_norm), alias_ticker))
+                covered_spans.append((match.start(), match.end(), alias_ticker, alias_norm))
 
-        # 1. Tickers trong ngoặc: (VJC), (ACB)
-        parens = re.findall(r'\(([A-Z][A-Z0-9]{1,3})\)', question)
-        for p in parens:
-            if p not in self._NOISE_TICKERS and p in self.ticker_set and p not in tickers:
-                tickers.append(p)
-
-        # 2. Match company names from manifest (longest match wins)
+        # 1. Company aliases built from code_stock/manifest.
         for name_key, ticker in self.name_to_ticker.items():
-            if name_key in q_lower and ticker not in tickers:
-                # Kiểm tra alias đã cover ticker này chưa — tránh thêm FPT khi FTS đã match
-                already_covered = False
-                for alias_name, alias_ticker in alias_sorted:
-                    if alias_name in q_lower and alias_ticker != ticker:
-                        # alias match rồi, nếu name_key là substring của alias thì skip
-                        if name_key in alias_name or alias_name in name_key:
-                            already_covered = True
-                            break
-                if not already_covered:
-                    tickers.append(ticker)
+            match = re.search(rf"(?<![a-z0-9]){re.escape(name_key)}(?![a-z0-9])", q_normalized)
+            if not match:
+                continue
+            conflicting = any(
+                start <= match.start() and match.end() <= end and alias_ticker != ticker
+                for start, end, alias_ticker, _ in covered_spans
+            )
+            if not conflicting:
+                positioned.append((match.start(), -len(name_key), ticker))
 
-        # 3. Bare uppercase match (e.g. "nhóm MSN, MCH, DBC, ASM và OGC")
-        for c in re.findall(r'\b([A-Z][A-Z0-9]{1,3})\b', question):
-            if c not in self._NOISE_TICKERS and c in self.ticker_set and c not in tickers:
-                # Kiểm tra: nếu alias đã resolve ticker khác cho cùng context thì skip
-                # VD: "Chứng khoán FPT" → FTS đã có, skip bare "FPT"
-                skip = False
-                for alias_name, alias_ticker in alias_sorted:
-                    if alias_name in q_lower and c.lower() in alias_name and alias_ticker != c:
-                        skip = True
-                        break
-                if not skip:
-                    tickers.append(c)
+        # 2. Tickers in parentheses and bare uppercase tokens.
+        for match in re.finditer(r'\b([A-Z][A-Z0-9]{1,4})\b', question):
+            ticker = match.group(1)
+            if ticker in self._NOISE_TICKERS or ticker not in self.ticker_set:
+                continue
+            # "Chứng khoán FPT" is an alias for FTS, not bare company FPT.
+            skip = any(
+                start <= match.start() <= end and alias_ticker != ticker
+                for start, end, alias_ticker, _ in covered_spans
+            )
+            if not skip:
+                positioned.append((match.start(), -len(ticker), ticker))
+
+        tickers = []
+        for _, _, ticker in sorted(positioned):
+            if ticker not in tickers:
+                tickers.append(ticker)
 
         # 4. Years: 2016-2020 range hoặc các năm riêng lẻ
         years = []
@@ -584,6 +701,186 @@ class TableRetriever:
             return "consolidated"
         return None
 
+    @staticmethod
+    def _statement_type_for_path(path: str) -> str:
+        folded = normalize_metric_text(os.path.basename(path))
+        compact = folded.replace(" ", "")
+        if any(token in compact for token in ("bangcandoiketoan", "baocaotinhhinhtaichinh", "candoiketoan")):
+            return "balance_sheet"
+        if any(token in compact for token in ("baocaoketquakinhdoanh", "ketquahoatdongkinhdoanh", "ketquakinhdoanh")):
+            return "income_statement"
+        if any(token in compact for token in ("baocaoluuchuyentiente", "luuchuyentiente", "luuchuyentiente")):
+            return "cashflow"
+        return "notes"
+
+    def _candidate_files(self, ticker: str, year: str) -> list[str]:
+        nested = glob.glob(os.path.join(self.csv_dir, ticker, f"{ticker}_{year}_*.csv"))
+        flat = glob.glob(os.path.join(self.csv_dir, f"{ticker}_{year}_*.csv"))
+        return list(dict.fromkeys(path.replace("\\", "/") for path in (*nested, *flat)))
+
+    def _ticker_files(self, ticker: str) -> list[str]:
+        """Return files for both production's nested and fixtures' flat layouts."""
+        nested = glob.glob(os.path.join(self.csv_dir, ticker, f"{ticker}_*.csv"))
+        flat = glob.glob(os.path.join(self.csv_dir, f"{ticker}_*.csv"))
+        return list(dict.fromkeys(path.replace("\\", "/") for path in (*nested, *flat)))
+
+    def _labels_for_path(self, path: str) -> list[tuple[int, str]]:
+        cached = self._labels_cache.get(path)
+        if cached is not None:
+            return cached
+        real_path = path if os.path.exists(path) else path.replace("data/", "", 1)
+        labels = []
+        try:
+            df = pd.read_csv(real_path, usecols=["Chi_tieu"])
+            labels = [(int(index), normalize_metric_text(value)) for index, value in df["Chi_tieu"].items()]
+        except Exception:
+            labels = []
+        self._labels_cache[path] = labels
+        return labels
+
+    def _metric_path_score(
+        self,
+        path: str,
+        metric: str,
+        registry: MetricRegistry,
+        scope: Scope | str,
+    ) -> float:
+        definition = registry.get(metric.removesuffix("_previous"))
+        expected_statements = set(registry.statement_types_for(metric))
+        statement = self._statement_type_for_path(path)
+        score = 20.0 if statement in expected_statements else (-8.0 if expected_statements else 0.0)
+        path_lower = path.lower()
+        scope_value = scope.value if isinstance(scope, Scope) else str(scope)
+        if scope_value in {"separate", "consolidated"}:
+            if scope_value in path_lower:
+                score += 8.0
+            elif "separate" in path_lower or "consolidated" in path_lower:
+                score -= 8.0
+        aliases = [normalize_metric_text(alias) for alias in definition.aliases]
+        aliases.append(normalize_metric_text(definition.name.replace("_", " ")))
+        best_row = -100.0
+        for _, label in self._labels_for_path(path):
+            for alias in aliases:
+                if not alias:
+                    continue
+                if label == alias:
+                    row_score = 35.0
+                elif label.startswith(alias) or alias.startswith(label):
+                    row_score = 22.0
+                elif alias in label:
+                    row_score = 15.0
+                else:
+                    alias_tokens = set(alias.split())
+                    label_tokens = set(label.split())
+                    overlap = len(alias_tokens & label_tokens) / max(len(alias_tokens), 1)
+                    row_score = overlap * 8.0
+                if definition.exact_total and (label.startswith("tong ") or "tong cong" in label):
+                    row_score += 4.0
+                best_row = max(best_row, row_score)
+        if best_row < 0:
+            return -1_000.0
+        if re.search(r"_0[2-9]\.csv$", path_lower):
+            score -= 1.0
+        return score + best_row
+
+    def retrieve_metric(
+        self,
+        ticker: str,
+        year: str,
+        metric: str,
+        *,
+        scope: Scope | str = Scope.UNKNOWN,
+        registry: MetricRegistry | None = None,
+        top_k: int = 1,
+    ) -> list[str]:
+        """Retrieve tables specifically for one ``(ticker, year, metric)``."""
+        registry = registry or DEFAULT_REGISTRY
+        metric_name = metric.removesuffix("_previous")
+        candidates = self._candidate_files(ticker, str(year))
+        scored = [
+            (path, self._metric_path_score(path, metric_name, registry, scope))
+            for path in candidates
+        ]
+        valid = sorted((item for item in scored if item[1] > -900), key=lambda item: (-item[1], item[0]))
+        return [path for path, _ in valid[: max(1, top_k)]]
+
+    def retrieve_plan(
+        self,
+        plan: QuestionPlan,
+        *,
+        registry: MetricRegistry | None = None,
+        per_metric_k: int = 1,
+    ) -> EvidenceBundle:
+        """Metric-aware retrieval with explicit completeness and stable df mapping.
+
+        Unlike :meth:`retrieve`, this method never applies a global cap. Every
+        required company/year/metric receives its own retrieval attempt.
+        """
+        registry = registry or DEFAULT_REGISTRY
+        bundle = EvidenceBundle()
+        if not plan.tickers or not plan.years:
+            missing_tickers = plan.tickers or ["<unknown>"]
+            missing_years = plan.years or ["<unknown>"]
+            for ticker in missing_tickers:
+                for year in missing_years:
+                    for metric in plan.required_metrics or [plan.target_metric or "<unknown>"]:
+                        bundle.missing_requirements.append(
+                            MissingRequirement(ticker, year, metric, (), "entities_or_years_missing")
+                        )
+            return bundle
+
+        requirements = []
+        for ticker in plan.tickers:
+            for metric in plan.required_metrics:
+                if metric in {"current_value", "previous_value", "beginning_value", "ending_value", "periods", "current_percentage", "previous_percentage"}:
+                    continue
+                for year in plan.metric_years.get(metric.removesuffix("_previous"), plan.years):
+                    requirements.append((ticker, year, metric.removesuffix("_previous")))
+
+        for ticker, year, metric in list(dict.fromkeys(requirements)):
+            statement_types = registry.statement_types_for(metric)
+            paths = self.retrieve_metric(
+                ticker, year, metric, scope=plan.scope, registry=registry, top_k=per_metric_k
+            )
+            if not paths:
+                bundle.missing_requirements.append(
+                    MissingRequirement(ticker, year, metric, statement_types)
+                )
+                continue
+            for path in paths:
+                bundle.add(ticker, year, metric, self._statement_type_for_path(path), path)
+        return bundle
+
+    def get_manifest_entry(self, csv_path: str) -> dict[str, Any]:
+        """Return real manifest metadata or an explicit degraded synthetic entry."""
+        normalized = csv_path.replace("\\", "/")
+        entry = self.manifest.get(normalized) or self.manifest.get(csv_path)
+        if entry:
+            return entry
+        filename = os.path.basename(normalized)
+        match = re.match(r"(?P<ticker>[A-Z0-9]+)_(?P<year>20\d{2})_(?P<slug>.+)_(?P<scope>separate|consolidated|aggregated|unknown)(?:_\d+)?\.csv$", filename)
+        if not match:
+            return {"metadata_status": self.manifest_error or "manifest_entry_missing"}
+        values = match.groupdict()
+        doc_scope = values["scope"] if values["scope"] != "unknown" else ""
+        doc_id = f"{values['ticker']}_financial_statements_{values['year']}"
+        if doc_scope:
+            doc_id += f"_{doc_scope}"
+        source_txt = (
+            f"data/raw_vifinqa/financial_statements/{values['ticker']}/{values['year']}/"
+            f"{doc_id}/{doc_id}_extracted.txt"
+        )
+        return {
+            "csv_path": normalized,
+            "ticker": values["ticker"],
+            "report_year": int(values["year"]),
+            "report_type": values["scope"],
+            "table_slug": values["slug"],
+            "source_txt": source_txt,
+            "source_table_index": None,
+            "metadata_status": self.manifest_error or "synthetic_manifest_entry",
+        }
+
     def retrieve(self, question: str, top_k: int = None) -> list:
         """
         Đầu vào: Câu hỏi tiếng Việt.
@@ -600,6 +897,33 @@ class TableRetriever:
         if not os.path.exists(self.csv_dir) or not os.listdir(self.csv_dir):
             print(f"[Retriever] WARNING: csv_dir '{self.csv_dir}' empty or missing.")
             return []
+
+        # Analytical questions are retrieved metric-by-metric. ``top_k`` is
+        # intentionally ignored here because a global cap would silently drop
+        # required companies/years; callers can use retrieve_plan for details.
+        plan = QuestionPlanner(entity_resolver=self).analyze(question)
+        # Every non-lookup plan is metric-aware.  In particular, bare
+        # MULTI_COMPANY/MULTI_YEAR plans must not fall through to the legacy
+        # global ``max_k=10`` branch below.
+        if plan.question_type != QuestionType.SIMPLE_LOOKUP:
+            return self.retrieve_plan(plan).paths
+
+        if (
+            plan.target_metric
+            and len(tickers) == 1
+            and len(years) == 1
+            and plan.target_metric in DEFAULT_REGISTRY.names()
+            and not DEFAULT_REGISTRY.get(plan.target_metric).derived
+        ):
+            metric_paths = self.retrieve_metric(
+                tickers[0],
+                years[0],
+                plan.target_metric,
+                scope=plan.scope,
+                top_k=top_k or 1,
+            )
+            if metric_paths:
+                return metric_paths
 
         _ratio_keywords = {"hệ số", "tỷ số", "tỉ số", "biên lợi nhuận", "biên ln", "biên gộp",
                            "đòn bẩy", "roe", "roa", "ros", "nim", "cir", "npl", "d/e"}
@@ -618,11 +942,11 @@ class TableRetriever:
                 for y in target_years:
                     matching = []
                     if t and y:
-                        matching = glob.glob(f"{self.csv_dir}/{t}/{t}_{y}_*.csv")
+                        matching = self._candidate_files(t, y)
                         if not matching:
-                            matching = glob.glob(f"{self.csv_dir}/{t}/{t}_*.csv")
+                            matching = self._ticker_files(t)
                     elif t:
-                        matching = glob.glob(f"{self.csv_dir}/{t}/{t}_*.csv")
+                        matching = self._ticker_files(t)
                     elif y:
                         matching = glob.glob(f"{self.csv_dir}/*/*_{y}_*.csv")
 
@@ -643,11 +967,11 @@ class TableRetriever:
         year = years[0] if years else None
 
         if ticker and year:
-            matching = glob.glob(f"{self.csv_dir}/{ticker}/{ticker}_{year}_*.csv")
+            matching = self._candidate_files(ticker, year)
             if not matching:
-                matching = glob.glob(f"{self.csv_dir}/{ticker}/{ticker}_*.csv")
+                matching = self._ticker_files(ticker)
         elif ticker:
-            matching = glob.glob(f"{self.csv_dir}/{ticker}/{ticker}_*.csv")
+            matching = self._ticker_files(ticker)
         else:
             matching = []
 
@@ -690,4 +1014,3 @@ if __name__ == "__main__":
         print(f"{status} Ticker={ticker} Year={year} | Q: {q[:70]}...")
         print(f"   Results: {results}\n")
     print(f"Entity extraction: {ok}/{len(test_questions)} correct")
-

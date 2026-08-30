@@ -12,6 +12,7 @@ from src.data_extractor import (
     ExtractionDiagnostics,
     RawTable,
     convert_candidate,
+    canonical_table_slug,
     build_header_paths,
     decide_value_column,
     detect_unit,
@@ -104,6 +105,12 @@ class DataExtractorTests(unittest.TestCase):
         self.assertEqual(detect_unit("Nguyên tệ Yên Nhật"), "JPY")
         self.assertEqual(detect_unit("Số dư USD"), "USD")
         self.assertEqual(detect_unit("Giá trị EUR"), "EUR")
+        self.assertEqual(detect_unit("Đơn vị: trăm tỷ đồng"), "Tram ty dong")
+        self.assertEqual(detect_unit("Đơn vị: nghìn tỷ đồng"), "Nghin ty dong")
+        self.assertEqual(detect_unit("Đơn vị: triệu USD"), "Trieu USD")
+        self.assertEqual(detect_unit("Đơn vị: nghìn USD"), "Nghin USD")
+        self.assertEqual(detect_unit("Mức thay đổi (điểm phần trăm)"), "Diem phan tram")
+        self.assertEqual(detect_unit("Hệ số (lần)"), "Lan")
 
     def test_report_year_column_is_selected(self):
         rows = [
@@ -133,6 +140,44 @@ class DataExtractorTests(unittest.TestCase):
         decision = decide_value_column(textual_dates_reversed, 2023)
         self.assertEqual(decision.column, 2)
         self.assertEqual(decision.confidence, "high")
+
+    def test_year_with_currency_suffix_is_kept_in_header_band(self):
+        rows = [
+            ["", "Mã số", "Thuyết minh", "2022 VND", "2021 VND"],
+            ["Doanh thu thuần", "10", "24", "141409274460632", "149679789979345"],
+            ["Giá vốn hàng bán", "11", "31", "124645848221080", "108571380446353"],
+        ]
+        self.assertIn("2022 VND", build_header_paths(rows)[3])
+        decision = decide_value_column(rows, 2022)
+        self.assertEqual(decision.column, 3)
+        self.assertEqual(decision.confidence, "high")
+
+    def test_core_slug_accepts_corporate_prefix_but_not_note_reference(self):
+        title = (
+            "Công ty Cổ phần Ví dụ và các công ty con "
+            "Báo cáo kết quả hoạt động kinh doanh hợp nhất năm 2024"
+        )
+        self.assertEqual(canonical_table_slug(title), "BaoCaoKetQuaKinhDoanh")
+        self.assertNotEqual(
+            canonical_table_slug("Ghi nhận trong báo cáo kết quả hoạt động kinh doanh"),
+            "BaoCaoKetQuaKinhDoanh",
+        )
+
+    def test_share_table_preserves_quantity_axis_instead_of_vnd_axis(self):
+        content = """
+        <h2>24.5 Cổ phiếu</h2>
+        <table><tr><th></th><th colspan="2">Ngày 31 tháng 12 năm 2018</th></tr>
+        <tr><th></th><th>Số lượng Cổ phiếu</th><th>Giá trị VND</th></tr>
+        <tr><td>Cổ phiếu đăng ký phát hành</td><td>700.886.434</td><td>7.008.864.340.000</td></tr>
+        <tr><td>Cổ phiếu đang lưu hành</td><td>700.886.434</td><td>7.008.864.340.000</td></tr>
+        </table>
+        """
+        raw = extract_html_tables(content)[0]
+        table, reason = convert_candidate(raw, 2018)
+        self.assertEqual(reason, "")
+        self.assertEqual(table.value_column_method, "semantic_share_quantity")
+        self.assertEqual(table.records[0]["Gia_tri"], 700886434)
+        self.assertEqual(table.records[0]["Don_vi"], "Co phieu")
 
     def test_scored_value_column_excludes_ratio_and_prior_period(self):
         rows = [

@@ -3,7 +3,13 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pandas as pd
-from src.query_formatter import convert_script_to_expression, is_valid_eval_expr
+import pytest
+from src.query_formatter import (
+    QueryExecutionError,
+    QueryFormatError,
+    convert_script_to_expression,
+    is_valid_eval_expr,
+)
 
 
 def test_already_valid():
@@ -33,21 +39,26 @@ def test_multiline_contains():
     print(f"  PASS test_multiline_contains -> {result}")
 
 
-def test_abs_value():
+def test_signed_value_is_preserved_without_invented_abs():
     df1 = pd.DataFrame({"Chi_tieu": ["Chi phí"], "Gia_tri": [-5947205.0]})
     dfs = {"df1": df1}
-    result = convert_script_to_expression("abs(val)", dfs, 5947205.0)
-    assert "\n" not in result
+    code = "val = float(df1.iloc[0]['Gia_tri'])\nanswer = val\nprint(answer)"
+    result = convert_script_to_expression(code, dfs, 5947205.0)
+    assert "abs(" not in result
     val = eval(result, {"pd": pd, **dfs})
-    assert abs(float(val) - 5947205.0) < 1.0, f"Value mismatch: {val}"
-    print(f"  PASS test_abs_value -> {result}")
+    assert float(val) == -5947205.0
 
 
 def test_two_table_sum():
     df1 = pd.DataFrame({"Chi_tieu": ["Nợ ngắn hạn"], "Gia_tri": [100000000000.0]})
     df2 = pd.DataFrame({"Chi_tieu": ["Nợ dài hạn"], "Gia_tri": [50000000000.0]})
     dfs = {"df1": df1, "df2": df2}
-    result = convert_script_to_expression("x+y", dfs, 150.0)  # 150 tỷ
+    code = (
+        "x = float(df1.iloc[0]['Gia_tri'])\n"
+        "y = float(df2.iloc[0]['Gia_tri'])\n"
+        "answer = (x + y) / 1_000_000_000\nprint(answer)"
+    )
+    result = convert_script_to_expression(code, dfs, -999.0)
     assert "\n" not in result
     val = eval(result, {"pd": pd, **dfs})
     assert abs(float(val) - 150.0) < 1.0, f"Value mismatch: {val}"
@@ -58,20 +69,22 @@ def test_ratio_percent():
     df1 = pd.DataFrame({"Chi_tieu": ["LNST"], "Gia_tri": [300.0]})
     df2 = pd.DataFrame({"Chi_tieu": ["Doanh thu"], "Gia_tri": [1000.0]})
     dfs = {"df1": df1, "df2": df2}
-    result = convert_script_to_expression("pct", dfs, 30.0)  # 30%
+    code = (
+        "profit = float(df1.iloc[0]['Gia_tri'])\n"
+        "revenue = float(df2.iloc[0]['Gia_tri'])\n"
+        "pct = profit / revenue * 100\nprint(pct)"
+    )
+    result = convert_script_to_expression(code, dfs, -999.0)
     assert "\n" not in result
     val = eval(result, {"pd": pd, **dfs})
     assert abs(float(val) - 30.0) < 1.0, f"Value mismatch: {val}"
     print(f"  PASS test_ratio_percent -> {result}")
 
 
-def test_fallback_constant():
+def test_invalid_code_never_falls_back_to_a_row_or_constant():
     dfs = {"df1": pd.DataFrame({"Chi_tieu": ["X"], "Gia_tri": [999.0]})}
-    result = convert_script_to_expression("garbage code", dfs, 42.5)
-    assert result == "float(df1.iloc[0]['Gia_tri'])", f"Expected df fallback, got: {result}"
-    val = eval(result, {"df1": dfs["df1"]})
-    assert abs(float(val) - 999.0) < 0.01
-    print(f"  PASS test_fallback_constant -> {result}")
+    with pytest.raises(QueryFormatError):
+        convert_script_to_expression("garbage code", dfs, 42.5)
 
 
 def test_unicode_escape_in_script():
@@ -83,10 +96,8 @@ def test_unicode_escape_in_script():
         "answer = val / 1_000_000\n"
         "print(answer)"
     )
-    result = convert_script_to_expression(code, {"df1": df1}, 5.0)
-    assert "\n" not in result
-    assert "lambda" not in result
-    print(f"  PASS test_unicode_escape_in_script -> {result}")
+    with pytest.raises(QueryExecutionError):
+        convert_script_to_expression(code, {"df1": df1}, 5.0)
 
 
 
@@ -94,8 +105,8 @@ if __name__ == "__main__":
     print("=== Testing query_formatter ===")
     test_already_valid()
     test_multiline_contains()
-    test_abs_value()
+    test_signed_value_is_preserved_without_invented_abs()
     test_two_table_sum()
     test_ratio_percent()
-    test_fallback_constant()
+    test_invalid_code_never_falls_back_to_a_row_or_constant()
     print("\n=== ALL TESTS PASSED ===")

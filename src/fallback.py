@@ -6,6 +6,30 @@ from typing import Optional
 
 import pandas as pd
 
+try:  # Support both package imports and the legacy ``sys.path += ['src']`` entrypoint.
+    from .metric_registry import DEFAULT_REGISTRY, normalize_metric_text
+    from .question_planner import QuestionPlan, QuestionPlanner, QuestionType
+    from .units import (
+        UnitConversionError,
+        conversion_factor as canonical_conversion_factor,
+        convert_value as canonical_convert_value,
+        detect_target_unit as canonical_detect_target_unit,
+        resolve_unit,
+    )
+except ImportError:  # pragma: no cover - exercised by the legacy CLI entrypoint
+    from metric_registry import DEFAULT_REGISTRY, normalize_metric_text
+    from question_planner import QuestionPlan, QuestionPlanner, QuestionType
+    from units import (
+        UnitConversionError,
+        conversion_factor as canonical_conversion_factor,
+        convert_value as canonical_convert_value,
+        detect_target_unit as canonical_detect_target_unit,
+        resolve_unit,
+    )
+
+
+_QUESTION_PLANNER = QuestionPlanner()
+
 
 @dataclass
 class FallbackResult:
@@ -102,59 +126,30 @@ def normalize_text(text) -> str:
 
 
 def detect_target_unit(question: str) -> str:
-    q = normalize_text(question)
-    if "nghin ty" in q:
-        return "nghìn tỷ đồng"
-    if "ty dong" in q:
-        return "tỷ đồng"
-    if "trieu dong" in q:
-        return "triệu đồng"
-    if "nghin dong" in q:
-        return "nghìn đồng"
-    if "%" in question or "phan tram" in q:
-        return "%"
-    return ""
+    """Return the canonical target unit (legacy public compatibility API).
+
+    Unit matching is delegated to :mod:`units`, whose longest-match parser is
+    deliberately ordered so ``trăm tỷ đồng`` cannot be misread as
+    ``tỷ đồng``.
+    """
+
+    return canonical_detect_target_unit(question)
 
 
 def convert_unit(value, source_unit, target_unit: str) -> float:
-    value = float(value)
-    u = "" if pd.isna(source_unit) else normalize_text(source_unit)
-    t = normalize_text(target_unit)
-    if u == "" or u == "nan":
-        # CSV mixes blank units: large raw numbers are VND; small bank-note values are usually already target unit.
-        if abs(value) >= 1_000_000_000:
-            u = "vnd"
-        else:
-            u = t or "vnd"
-    if "%" in u or "%" in t:
-        return value
-    is_vnd = "vnd" in u or "dong" in u
-    is_trieu = "trieu" in u
-    is_ty = "ty" in u
-    if "nghin ty" in t:
-        if is_trieu:
-            return value / 1_000_000
-        if is_vnd and not is_trieu and not is_ty:
-            return value / 1_000_000_000_000
-        return value
-    if "ty" in t:
-        if is_trieu:
-            return value / 1000
-        if is_vnd and not is_trieu and not is_ty:
-            return value / 1_000_000_000
-        return value
-    if "trieu" in t:
-        if is_ty:
-            return value * 1000
-        if is_vnd and not is_trieu and not is_ty:
-            return value / 1_000_000
-        return value
-    if "nghin" in t:
-        if is_vnd and not is_trieu and not is_ty:
-            return value / 1000
-        if is_trieu:
-            return value * 1000
-    return value
+    """Convert using the *selected row's* unit and preserve the source sign.
+
+    An empty target means no conversion was requested.  A requested conversion
+    with an empty/unknown source is an error: fallback must not guess a unit
+    from the magnitude or from unrelated rows in the CSV.
+    """
+
+    numeric = float(value)
+    if not target_unit:
+        return numeric
+    if pd.isna(source_unit) or not str(source_unit).strip():
+        raise UnitConversionError("Selected evidence row has no source unit")
+    return canonical_convert_value(numeric, source_unit, target_unit, strict=True)
 
 
 
@@ -172,15 +167,107 @@ def _extract_ticker_year(question: str):
 
 
 def _candidate_paths(question: str, csv_paths: list) -> list:
-    paths = list(dict.fromkeys(csv_paths))
-    ticker, year = _extract_ticker_year(question)
-    if ticker and year:
-        folder = os.path.join("data", "processed_csv", ticker)
-        if os.path.isdir(folder):
-            prefix = f"{ticker}_{year}_"
-            extra = [os.path.join(folder, name).replace("\\", "/") for name in os.listdir(folder) if name.startswith(prefix) and name.endswith(".csv")]
-            paths.extend(extra)
-    return list(dict.fromkeys(paths))
+    """Return only evidence paths explicitly supplied by the caller.
+
+    Older code searched the ticker directory and silently appended files that
+    were not part of ``relevant_docs``.  Those files had no stable dataframe
+    variable and were later emitted as ``df1``.  Keeping this helper (and its
+    historical signature) is useful to callers, but expansion is forbidden.
+    """
+
+    del question  # The question must never broaden the authorized evidence.
+    paths: list[str] = []
+    for raw_path in csv_paths or ():
+        path = os.fspath(raw_path)
+        if path not in paths:
+            paths.append(path)
+    return paths
+
+
+def _contains_phrase(text: str, phrase: str) -> bool:
+    normalized_text = f" {normalize_metric_text(text)} "
+    normalized_phrase = normalize_metric_text(phrase)
+    return bool(
+        normalized_phrase
+        and re.search(
+            rf"(?<![a-z0-9]){re.escape(normalized_phrase)}(?![a-z0-9])",
+            normalized_text,
+        )
+    )
+
+
+def _semantic_metric_match(question: str, row_label: object, plan: QuestionPlan) -> float:
+    """Return a conservative semantic-match bonus, or zero when ambiguous.
+
+    A lexical overlap alone is insufficient for a fallback answer.  For known
+    registry metrics the selected row must contain a registered alias for the
+    planned *target* metric.  For note-table questions not represented by the
+    registry, a multi-token domain phrase (or nearly exact row label) must be
+    present in both question and row.
+    """
+
+    row = "" if row_label is None else str(row_label)
+    target = plan.target_metric
+    if target:
+        try:
+            definition = DEFAULT_REGISTRY.get(target)
+        except KeyError:
+            return 0.0
+        if definition.derived:
+            # A derived metric is not a source row.  The planner should already
+            # classify it as complex, but retaining this guard makes the safety
+            # rule local and explicit.
+            return 0.0
+        aliases = (target.replace("_", " "), *definition.aliases)
+        matched = [alias for alias in aliases if _contains_phrase(row, alias)]
+        if not matched:
+            return 0.0
+        # Exact-total metrics must resolve to their total row, not a child row
+        # that merely happens to share generic vocabulary.
+        if definition.exact_total:
+            normalized_row = normalize_metric_text(row)
+            exact_aliases = {normalize_metric_text(alias) for alias in matched}
+            stripped_row = re.sub(r"^(?:[ivxlcdm]+|\d+)\s*", "", normalized_row).strip()
+            exact_shape = any(
+                re.fullmatch(
+                    rf"(?:(?:[a-z]|[ivxlcdm]+|\d+)\s+)*{re.escape(alias)}(?:\s+\d+)*",
+                    stripped_row,
+                )
+                or stripped_row.startswith(f"tong {alias}")
+                or stripped_row.startswith(f"{alias} tong cong")
+                for alias in exact_aliases
+            )
+            if not exact_shape:
+                # Some statements suffix the exact total with punctuation or a
+                # short period qualifier.  A close token-length match remains
+                # safe; hierarchical rows are substantially longer.
+                alias_tokens = min(len(alias.split()) for alias in exact_aliases)
+                if len(stripped_row.split()) > alias_tokens + 2:
+                    return 0.0
+        return 14.0
+
+    qnorm = normalize_text(question)
+    rnorm = normalize_text(row)
+    best_phrase_tokens = 0
+    for phrase, tokens in _PHRASES:
+        if len(tokens) < 2:
+            continue
+        if phrase in qnorm and phrase in rnorm:
+            best_phrase_tokens = max(best_phrase_tokens, len(tokens))
+        elif all(token in qnorm for token in tokens) and all(token in rnorm for token in tokens):
+            best_phrase_tokens = max(best_phrase_tokens, len(tokens))
+    if best_phrase_tokens >= 2:
+        return 10.0 + min(best_phrase_tokens, 5)
+
+    # Notes often use a proper-name row not covered by the financial registry.
+    # Accept only a near-exact, multi-token label mention in that case.
+    row_tokens = [token for token in re.findall(r"[a-z0-9]+", rnorm) if token not in _STOPWORDS]
+    question_tokens = set(_question_tokens(question))
+    if len(row_tokens) >= 2:
+        overlap = sum(token in question_tokens for token in row_tokens)
+        if overlap >= 3 and overlap / len(row_tokens) >= 0.75:
+            return 12.0
+    return 0.0
 
 
 def _row_score(question: str, path: str, chi_tieu: str) -> float:
@@ -263,14 +350,21 @@ def _row_score(question: str, path: str, chi_tieu: str) -> float:
     return score
 
 
-def _make_query(var_name: str, row_index: int, unit_factor: float, is_negative_abs: bool) -> str:
+def _make_query(
+    var_name: str,
+    row_index: int,
+    unit_factor: float,
+    is_negative_abs: bool = False,
+) -> str:
+    """Build an evidence-derived scalar query without changing its sign.
+
+    ``is_negative_abs`` remains in the signature for compatibility with older
+    callers, but is intentionally ignored.  Financial-statement signs are data,
+    not an error-recovery signal.
     """
-    Sinh biểu thức Pandas chuẩn trên biến DataFrame (df1, df2, ...) từ evidence.
-    Ví dụ: float(abs(df1.iloc[5]['Gia_tri']) / 1000000)
-    """
+
+    del is_negative_abs
     expr = f"float({var_name}.iloc[{int(row_index)}]['Gia_tri'])"
-    if is_negative_abs:
-        expr = f"abs({expr})"
     if unit_factor != 1.0:
         if unit_factor > 1.0:
             if unit_factor == int(unit_factor):
@@ -284,186 +378,135 @@ def _make_query(var_name: str, row_index: int, unit_factor: float, is_negative_a
 
 
 def _get_unit_factor(value: float, source_unit: str, target_unit: str) -> float:
-    """Tính toán hệ số nhân để quy đổi từ source_unit sang target_unit."""
-    u = "" if pd.isna(source_unit) else normalize_text(source_unit)
-    t = normalize_text(target_unit)
-    if u == "" or u == "nan":
-        if abs(value) >= 1_000_000_000:
-            u = "vnd"
-        else:
-            u = t or "vnd"
-    if "%" in u or "%" in t:
-        return 1.0
-    is_vnd = "vnd" in u or "dong" in u
-    is_trieu = "trieu" in u
-    is_ty = "ty" in u
+    """Return the canonical row-level conversion factor.
 
-    if "nghin ty" in t:
-        if is_trieu:
-            return 1.0 / 1_000_000
-        if is_vnd and not is_trieu and not is_ty:
-            return 1.0 / 1_000_000_000_000
-        return 1.0
-    if "ty" in t:
-        if is_trieu:
-            return 1.0 / 1_000
-        if is_vnd and not is_trieu and not is_ty:
-            return 1.0 / 1_000_000_000
-        return 1.0
-    if "trieu" in t:
-        if is_ty:
-            return 1000.0
-        if is_vnd and not is_trieu and not is_ty:
-            return 1.0 / 1_000_000
-        return 1.0
-    if "nghin" in t and "ty" not in t:
-        if is_ty:
-            return 1_000_000.0
-        if is_trieu:
-            return 1_000.0
-        if is_vnd and not is_trieu and not is_ty:
-            return 1.0 / 1_000
-        return 1.0
-    return 1.0
-
-
-def try_multistep_rule_based_answer(question: str, csv_paths: list) -> Optional[FallbackResult]:
+    ``value`` is retained solely for API compatibility.  Magnitude-based unit
+    inference was unsafe and is deliberately not performed.
     """
-    Nhận diện và giải quyết các câu hỏi tính toán đa bước phổ biến:
-    1. Tổng nợ = Nợ ngắn hạn + Nợ dài hạn
-    2. Biên lợi nhuận sau thuế = Lợi nhuận sau thuế / Doanh thu thuần * 100
-    3. Biên lợi nhuận gộp = Lợi nhuận gộp / Doanh thu thuần * 100
+
+    del value
+    if not target_unit:
+        return 1.0
+    if pd.isna(source_unit) or not str(source_unit).strip():
+        raise UnitConversionError("Selected evidence row has no source unit")
+    if resolve_unit(source_unit) is None:
+        raise UnitConversionError(f"Unknown selected-row unit: {source_unit!r}")
+    return canonical_conversion_factor(source_unit, target_unit)
+
+
+def _safe_plan(question: str, plan: Optional[QuestionPlan] = None) -> Optional[QuestionPlan]:
+    if plan is not None:
+        return plan
+    try:
+        return _QUESTION_PLANNER.analyze(question)
+    except Exception:
+        # A planner failure must fail closed.  Falling back to lexical row
+        # selection when complexity is unknown recreates the original bug.
+        return None
+
+
+def try_multistep_rule_based_answer(
+    question: str,
+    csv_paths: list,
+    plan: Optional[QuestionPlan] = None,
+) -> Optional[FallbackResult]:
+    """Compatibility entrypoint for the retired analytical fallback.
+
+    Multi-step calculations now belong to the deterministic metric executor.
+    This function deliberately returns no answer; in particular it can never
+    hide missing metrics behind a plausible-looking row or ad-hoc formula.
     """
-    qnorm = normalize_text(question)
-    target_unit = detect_target_unit(question)
-    path_to_var = {p: f"df{i+1}" for i, p in enumerate(csv_paths)}
+
+    del csv_paths
+    resolved_plan = _safe_plan(question, plan)
+    if resolved_plan is None or resolved_plan.is_complex:
+        return None
+    return None
+
+
+def try_rule_based_answer(
+    question: str,
+    csv_paths: list,
+    min_score: float = 4.0,
+    plan: Optional[QuestionPlan] = None,
+) -> Optional[FallbackResult]:
+    """Conservative, evidence-bound fallback for ``SIMPLE_LOOKUP`` only.
+
+    The result is sourced from exactly one of ``csv_paths`` and its query uses
+    the stable variable assigned to that same supplied path.  Zero and negative
+    values are returned unchanged.  Unknown units, ambiguous metrics, planner
+    failures, and every analytical question fail closed with ``None``.
+    """
+
+    resolved_plan = _safe_plan(question, plan)
+    if resolved_plan is None or resolved_plan.question_type != QuestionType.SIMPLE_LOOKUP:
+        return None
 
     candidates = _candidate_paths(question, csv_paths)
     if not candidates:
         return None
-
-    # TH1: Tổng nợ từ nợ ngắn hạn và nợ dài hạn
-    if ("tong no" in qnorm or "no phai tra" in qnorm) and "ngan han" in qnorm and "dai han" in qnorm:
-        for path in candidates:
-            real_path = path if os.path.exists(path) else path.replace("data/", "", 1)
-            if not os.path.exists(real_path):
-                continue
-            try:
-                df = pd.read_csv(real_path)
-            except Exception:
-                continue
-            if "Chi_tieu" not in df.columns or "Gia_tri" not in df.columns:
-                continue
-            
-            s = df["Chi_tieu"].astype(str).str.lower()
-            m_ngan = df[s.str.contains(r"nợ ngắn hạn|vay ngắn hạn", regex=True, na=False)]
-            m_dai = df[s.str.contains(r"nợ dài hạn|vay dài hạn", regex=True, na=False)]
-            
-            if not m_ngan.empty and not m_dai.empty:
-                idx1 = int(m_ngan.index[0])
-                idx2 = int(m_dai.index[0])
-                v1 = float(m_ngan.iloc[0]["Gia_tri"])
-                v2 = float(m_dai.iloc[0]["Gia_tri"])
-                u1 = m_ngan.iloc[0].get("Don_vi", "")
-                factor = _get_unit_factor(v1 + v2, u1, target_unit)
-                ans = (v1 + v2) * factor
-                var = path_to_var.get(path, "df1")
-                
-                # Biểu thức tính tổng
-                if factor == 1.0:
-                    query = f"float({var}.iloc[{idx1}]['Gia_tri']) + float({var}.iloc[{idx2}]['Gia_tri'])"
-                elif factor > 1.0:
-                    query = f"(float({var}.iloc[{idx1}]['Gia_tri']) + float({var}.iloc[{idx2}]['Gia_tri'])) * {int(factor) if factor==int(factor) else factor}"
-                else:
-                    inv = int(round(1.0 / factor))
-                    query = f"(float({var}.iloc[{idx1}]['Gia_tri']) + float({var}.iloc[{idx2}]['Gia_tri'])) / {inv}"
-                
-                return FallbackResult(float(ans), query, path, idx1, 99.0)
-
-    # TH2: Biên lợi nhuận sau thuế / Biên lợi nhuận gộp
-    if ("bien loi nhuan" in qnorm or "bien ln" in qnorm or "ty le" in qnorm) and ("sau thue" in qnorm or "gop" in qnorm):
-        for path in candidates:
-            real_path = path if os.path.exists(path) else path.replace("data/", "", 1)
-            if not os.path.exists(real_path):
-                continue
-            try:
-                df = pd.read_csv(real_path)
-            except Exception:
-                continue
-            if "Chi_tieu" not in df.columns or "Gia_tri" not in df.columns:
-                continue
-            
-            s = df["Chi_tieu"].astype(str).str.lower()
-            is_gop = "gop" in qnorm
-            pattern_ln = r"lợi nhuận gộp" if is_gop else r"lợi nhuận sau thuế"
-            m_ln = df[s.str.contains(pattern_ln, regex=True, na=False)]
-            m_dtt = df[s.str.contains(r"doanh thu thuần|doanh thu bán hàng", regex=True, na=False)]
-            
-            if not m_ln.empty and not m_dtt.empty:
-                idx1 = int(m_ln.index[0])
-                idx2 = int(m_dtt.index[0])
-                v1 = float(m_ln.iloc[0]["Gia_tri"])
-                v2 = float(m_dtt.iloc[0]["Gia_tri"])
-                if v2 != 0:
-                    ans = (v1 / v2) * 100.0
-                    var = path_to_var.get(path, "df1")
-                    query = f"(float({var}.iloc[{idx1}]['Gia_tri']) / float({var}.iloc[{idx2}]['Gia_tri'])) * 100"
-                    return FallbackResult(float(ans), query, path, idx1, 99.0)
-
-    return None
-
-
-def try_rule_based_answer(question: str, csv_paths: list, min_score: float = 4.0) -> Optional[FallbackResult]:
-    # 1. Thử giải câu hỏi đa bước trước
-    multistep_res = try_multistep_rule_based_answer(question, csv_paths)
-    if multistep_res is not None:
-        return multistep_res
-
-    # 2. Giải câu hỏi đơn
     target_unit = detect_target_unit(question)
-    best = None
-    
-    # Map từng path sang tên biến df1, df2,...
-    path_to_var = {p: f"df{i+1}" for i, p in enumerate(csv_paths)}
+    path_to_var = {path: f"df{i + 1}" for i, path in enumerate(candidates)}
+    best: Optional[FallbackResult] = None
+    # Legacy callers may pass a lower threshold, but a semantic fallback is not
+    # accepted on weak lexical evidence.
+    effective_min_score = max(float(min_score), 10.0)
 
-    for path in _candidate_paths(question, csv_paths):
-        real_path = path if os.path.exists(path) else path.replace("data/", "", 1)
-        if not os.path.exists(real_path):
+    for path in candidates:
+        var_name = path_to_var.get(path)
+        if var_name is None:  # Defensive: never invent a ``df1`` mapping.
+            continue
+        if not os.path.isfile(path):
             continue
         try:
-            df = pd.read_csv(real_path)
+            df = pd.read_csv(path)
         except Exception:
             continue
         if "Chi_tieu" not in df.columns or "Gia_tri" not in df.columns:
             continue
-            
-        var_name = path_to_var.get(path, "df1")
 
         for idx, row in df.iterrows():
             try:
                 value = float(row.get("Gia_tri"))
-            except Exception:
+            except (TypeError, ValueError):
                 continue
-            score = _row_score(question, path, row.get("Chi_tieu", ""))
-            if score <= 0:
+            semantic_bonus = _semantic_metric_match(
+                question,
+                row.get("Chi_tieu", ""),
+                resolved_plan,
+            )
+            if semantic_bonus <= 0:
                 continue
-                
-            unit_factor = _get_unit_factor(value, row.get("Don_vi", ""), target_unit)
-            raw_answer = value * unit_factor
-            qnorm = normalize_text(question)
-            is_cashflow_question = "luu chuyen" in qnorm or "dong tien" in qnorm
-            is_neg_abs = False
-            if raw_answer < 0 and not is_cashflow_question and any(k in qnorm for k in ["chi phi", "lai", "thu nhap", "doanh thu", "loi nhuan"]):
-                answer = abs(raw_answer)
-                is_neg_abs = True
-            else:
-                answer = raw_answer
+            score = _row_score(question, path, row.get("Chi_tieu", "")) + semantic_bonus
+            if score < effective_min_score:
+                continue
+            try:
+                unit_factor = _get_unit_factor(
+                    value,
+                    row.get("Don_vi", ""),
+                    target_unit,
+                )
+                answer = convert_unit(
+                    value,
+                    row.get("Don_vi", ""),
+                    target_unit,
+                )
+            except UnitConversionError:
+                continue
 
-            query = _make_query(var_name, idx, unit_factor, is_neg_abs)
-            candidate = FallbackResult(float(answer), query, path, int(idx), score)
+            query = _make_query(var_name, int(idx), unit_factor)
+            candidate = FallbackResult(float(answer), query, path, int(idx), float(score))
             if best is None or candidate.score > best.score:
                 best = candidate
-                
-    if best is not None and best.score >= min_score:
-        return best
-    return None
+
+    return best
+
+
+__all__ = [
+    "FallbackResult",
+    "convert_unit",
+    "detect_target_unit",
+    "normalize_text",
+    "try_multistep_rule_based_answer",
+    "try_rule_based_answer",
+]

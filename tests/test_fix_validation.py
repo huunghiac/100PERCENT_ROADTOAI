@@ -8,13 +8,14 @@ import json
 import re
 import pandas as pd
 import numpy as np
+import pytest
 
 _SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 if _SRC_DIR not in sys.path:
     sys.path.insert(0, _SRC_DIR)
 
 from pipeline import _build_submission_fields, _doc_id_from_source_txt
-from query_formatter import convert_script_to_expression, is_valid_eval_expr
+from query_formatter import QueryFormatError, convert_script_to_expression, is_valid_eval_expr
 
 
 def test_doc_id_extraction():
@@ -81,15 +82,10 @@ def test_no_lambda_in_query_formatter():
     print(f"  PASS test_no_lambda_in_query_formatter -> {expr}")
 
 
-def test_df_fallback_validity():
+def test_invalid_script_is_not_fit_to_expected_answer():
     df1 = pd.DataFrame({"Chi_tieu": ["X"], "Gia_tri": [123.45]})
-    expr = convert_script_to_expression("invalid script", {"df1": df1}, 999.0)
-    # Best-effort: expr co the la iloc[0] hoac co scale, nhung phai chay duoc va khong co lambda
-    assert "lambda" not in expr
-    assert "df1" in expr
-    val = eval(expr, {"df1": df1})
-    assert isinstance(float(val), float)
-    print(f"  PASS test_df_fallback_validity -> {expr}")
+    with pytest.raises(QueryFormatError):
+        convert_script_to_expression("invalid script", {"df1": df1}, 999.0)
 
 
 
@@ -120,6 +116,6 @@ if __name__ == "__main__":
     test_doc_id_extraction()
     test_build_submission_fields_and_pruning()
     test_no_lambda_in_query_formatter()
-    test_df_fallback_validity()
+    test_invalid_script_is_not_fit_to_expected_answer()
     test_reprocess_submission500_sample()
     print("\n=== TẤT CẢ UNIT TESTS ĐÃ VƯỢT QUA 100% ===")
