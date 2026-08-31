@@ -1,71 +1,85 @@
-"""Validate submission.json against BTC schema from README."""
+"""Validate BTC schema and expected-ID completeness."""
+from __future__ import annotations
+
+import argparse
 import json
 import os
 import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+SRC = str(ROOT / "src")
+if SRC not in sys.path:
+    sys.path.insert(0, SRC)
+
+from submission_contract import account_ids, load_questions, validate_items  # noqa: E402
 
 
-def validate(path="submission.json"):
+def _load_json_list(path: str) -> list[dict]:
+    with open(path, encoding="utf-8") as stream:
+        value = json.load(stream)
+    if not isinstance(value, list):
+        raise ValueError(f"{path}: root must be a JSON array")
+    return value
+
+
+def validate(
+    path: str = "submission.json",
+    *,
+    questions_path: str | None = None,
+    failures_path: str | None = None,
+    require_complete: bool = False,
+) -> bool:
     if not os.path.exists(path):
-        print(f"[FAIL] {path} does not exist yet.")
-        print("       Run pipeline.py to generate it.")
+        print(f"[SCHEMA FAIL] {path} does not exist")
+        return False
+    try:
+        items = _load_json_list(path)
+        questions = load_questions(questions_path) if questions_path else None
+        failures = _load_json_list(failures_path) if failures_path and os.path.exists(failures_path) else []
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        print(f"[SCHEMA FAIL] {exc}")
         return False
 
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    if not isinstance(data, list):
-        print("[FAIL] Root must be a JSON array.")
-        return False
-
-    required = ["id", "question", "answer", "relevant_docs",
-                 "relevant_tables", "evidence", "pandas_query"]
-    errors = []
-    for i, item in enumerate(data):
-        for field in required:
-            if field not in item:
-                errors.append(f"Item {i} (id={item.get('id','?')}): missing '{field}'")
-
-        # Type checks
-        if not isinstance(item.get("id"), int):
-            errors.append(f"Item {i}: 'id' should be int, got {type(item.get('id')).__name__}")
-        if not isinstance(item.get("question"), str):
-            errors.append(f"Item {i}: 'question' should be str")
-        if not isinstance(item.get("answer"), (int, float)):
-            errors.append(f"Item {i}: 'answer' should be numeric, got {type(item.get('answer')).__name__}: {repr(item.get('answer'))[:60]}")
-        if not isinstance(item.get("relevant_docs"), list):
-            errors.append(f"Item {i}: 'relevant_docs' should be list")
-        if not isinstance(item.get("relevant_tables"), list):
-            errors.append(f"Item {i}: 'relevant_tables' should be list")
-        if not isinstance(item.get("pandas_query"), str):
-            errors.append(f"Item {i}: 'pandas_query' should be str")
-
-        # Evidence structure
-        ev = item.get("evidence", [])
-        if not isinstance(ev, list):
-            errors.append(f"Item {i}: 'evidence' should be list")
-        else:
-            for j, e in enumerate(ev):
-                if "variable" not in e:
-                    errors.append(f"Item {i}, evidence[{j}]: missing 'variable'")
-                if "csv_path" not in e:
-                    errors.append(f"Item {i}, evidence[{j}]: missing 'csv_path'")
-                elif not e["csv_path"].startswith("data/"):
-                    errors.append(f"Item {i}, evidence[{j}]: csv_path must start with 'data/', got '{e['csv_path']}'")
-                elif e["csv_path"].count("/") > 1 or "\\" in e["csv_path"]:
-                    errors.append(f"Item {i}, evidence[{j}]: csv_path must be flat 'data/<file>.csv', got '{e['csv_path']}'")
-
+    errors = validate_items(items, questions)
     if errors:
-        print(f"[FAIL] {len(errors)} validation errors:")
-        for e in errors[:20]:
-            print(f"  - {e}")
-        if len(errors) > 20:
-            print(f"  ... and {len(errors) - 20} more")
-        return False
+        print(f"[SCHEMA FAIL] {len(errors)} errors")
+        for error in errors[:20]:
+            print(f"  - {error}")
+    else:
+        print(f"[SCHEMA PASS] {len(items)} items; exact 7-field BTC schema")
 
-    print(f"[PASS] {path} valid: {len(data)} items, all 7 fields present, types correct.")
-    return True
+    completeness_pass = True
+    if questions is not None:
+        accounting = account_ids(questions, items, failures)
+        completeness_pass = accounting.submission_ready
+        label = "PASS" if completeness_pass else "FAIL"
+        print(f"[COMPLETENESS {label}] {json.dumps(accounting.to_dict(), ensure_ascii=False)}")
+    elif require_complete:
+        completeness_pass = False
+        print("[COMPLETENESS FAIL] --questions is required with --require-complete")
+    else:
+        print("[COMPLETENESS SKIP] expected question universe not provided")
+
+    package_pass = not errors and (completeness_pass or not require_complete)
+    print(f"[PACKAGE {'PASS' if package_pass else 'FAIL'}]")
+    return not errors and (completeness_pass if require_complete else True)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("path", nargs="?", default="submission.json")
+    parser.add_argument("--questions")
+    parser.add_argument("--failures")
+    parser.add_argument("--require-complete", action="store_true")
+    args = parser.parse_args(argv)
+    return 0 if validate(
+        args.path,
+        questions_path=args.questions,
+        failures_path=args.failures,
+        require_complete=args.require_complete,
+    ) else 1
 
 
 if __name__ == "__main__":
-    path = sys.argv[1] if len(sys.argv) > 1 else "submission.json"
-    validate(path)
+    raise SystemExit(main())

@@ -16,7 +16,6 @@ import os
 import re
 import sys
 import time
-import zipfile
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
@@ -40,19 +39,33 @@ from query_formatter import (
 from question_planner import QuestionPlan, QuestionPlanner, QuestionType
 from retriever import EvidenceBundle, TableRetriever
 from semantic_validation import SemanticValidationError, validate_answer
+from submission_contract import BTC_FIELDS, account_ids, package_submission_atomic, validate_items
 
 
 class PipelineItemError(RuntimeError):
     """A question failed safely and must not be written to the submission."""
 
-    def __init__(self, stage: str, message: str, *, details: Mapping[str, Any] | None = None):
+    def __init__(
+        self,
+        stage: str,
+        message: str,
+        *,
+        code: str | None = None,
+        details: Mapping[str, Any] | None = None,
+    ):
         super().__init__(message)
         self.stage = stage
+        self.code = code or "pipeline_item_error"
         self.message = message
         self.details = dict(details or {})
 
     def to_dict(self) -> dict[str, Any]:
-        return {"stage": self.stage, "message": self.message, "details": self.details}
+        return {
+            "stage": self.stage,
+            "code": self.code,
+            "message": self.message,
+            "details": self.details,
+        }
 
 
 @dataclass
@@ -588,6 +601,7 @@ def run_full_pipeline(
             failures[question_id] = {
                 "id": question_id,
                 "question": question,
+                "question_type": plan.question_type.value if plan is not None else "unknown",
                 "plan": plan.to_dict() if plan is not None else None,
                 **exc.to_dict(),
             }
@@ -595,11 +609,19 @@ def run_full_pipeline(
         except (PipelineItemError, QueryFormatError, QueryExecutionError) as exc:
             stats.failed += 1
             detail = exc.to_dict() if isinstance(exc, PipelineItemError) else {
-                "stage": "query", "message": str(exc), "details": {}
+                "stage": "query",
+                "code": (
+                    "query_format"
+                    if isinstance(exc, QueryFormatError)
+                    else "query_execution"
+                ),
+                "message": str(exc),
+                "details": {},
             }
             failures[question_id] = {
                 "id": question_id,
                 "question": question,
+                "question_type": plan.question_type.value if plan is not None else "unknown",
                 "plan": plan.to_dict() if plan is not None else None,
                 "single_row_fallback_allowed": not getattr(plan, "is_complex", True),
                 **detail,
@@ -610,8 +632,10 @@ def run_full_pipeline(
             failures[question_id] = {
                 "id": question_id,
                 "question": question,
+                "question_type": plan.question_type.value if plan is not None else "unknown",
                 "plan": plan.to_dict() if plan is not None else None,
                 "stage": "unexpected",
+                "code": "unexpected_exception",
                 "message": f"{type(exc).__name__}: {exc}",
                 "single_row_fallback_allowed": False if plan and plan.is_complex else True,
             }
@@ -623,28 +647,35 @@ def run_full_pipeline(
 
     _save_json(results_map, output_json)
     failure_path = _save_failures(failures, output_json)
+    saved_items = [_strip_internal_fields(results_map[key]) for key in sorted(results_map)]
+    failure_items = [failures[key] for key in sorted(failures)]
+    expected_questions = {int(item["id"]): str(item["question"]) for item in questions}
+    accounting = account_ids(expected_questions, saved_items, failure_items)
+    schema_errors = validate_items(saved_items, expected_questions)
     quality = stats.report()
+    quality.update(accounting.to_dict())
+    quality["schema_pass"] = not schema_errors
+    quality["schema_errors"] = schema_errors[:100]
     quality["elapsed_seconds"] = round(time.time() - started, 3)
     quality["failure_report"] = failure_path
+    quality["package_created"] = False
+
+    if output_zip and accounting.submission_ready and not schema_errors:
+        package_submission_atomic(output_zip, output_json, used_csv_paths)
+        quality["package_created"] = True
+    elif output_zip:
+        print(
+            f"[Package blocked] submission_ready={accounting.submission_ready} "
+            f"schema_pass={not schema_errors}; checkpoint retained at {output_json}"
+        )
     quality_path = str(Path(output_json).with_suffix(".quality.json"))
     with open(quality_path, "w", encoding="utf-8") as handle:
         json.dump(quality, handle, ensure_ascii=False, indent=2)
-
-    if output_zip:
-        with zipfile.ZipFile(output_zip, "w", zipfile.ZIP_DEFLATED) as archive:
-            archive.write(output_json, arcname=os.path.basename(output_json))
-            for csv_path in sorted(used_csv_paths):
-                resolved = _resolve_csv_path(csv_path, retriever.csv_dir)
-                if resolved:
-                    archive.write(resolved, arcname=f"data/{os.path.basename(resolved)}")
     print(f"\n[Quality] {json.dumps(quality, ensure_ascii=False)}")
     return quality
 
 
-_BTC_FIELDS = frozenset({
-    "id", "question", "answer",
-    "relevant_docs", "relevant_tables", "evidence", "pandas_query",
-})
+_BTC_FIELDS = BTC_FIELDS
 
 
 def _strip_internal_fields(item: dict[str, Any]) -> dict[str, Any]:

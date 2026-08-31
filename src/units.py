@@ -266,13 +266,20 @@ def detect_target_unit(question: object) -> str:
     'phần trăm' từ tên chỉ tiêu — vì vậy ưu tiên cụm cuối câu trước.
     """
     norm = normalize_unit_text(str(question))
-    # Ưu tiên detect sau "là/bằng bao nhiêu <unit>?"
-    m = re.search(r'(?:la|bang)\s+bao\s+nhieu\s+(.{1,40}?)(?:\s*\?|$)', norm)
-    if m:
-        candidate = detect_unit_name(m.group(1))
-        if candidate:
-            return candidate
-    return detect_unit_name(question)
+    # Chỉ inspect answer clause. Quét toàn câu bắt nhầm legal name
+    # "Công ty Cổ phần" thành output dimension SHARES.
+    patterns = (
+        r"(?:la|bang)\s+bao\s+nhieu\s+(.{1,40}?)(?:\s*\?|$)",
+        r"bao\s+nhieu\s+(.{1,40}?)(?:\s*\?|$)",
+        r"(?:tinh|theo|don\s+vi)\s+(.{1,40}?)(?:\s*\?|$)",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, norm)
+        if match:
+            candidate = detect_unit_name(match.group(1))
+            if candidate:
+                return candidate
+    return ""
 
 
 def is_compatible(source_unit: object, target_unit: object) -> bool:
