@@ -7,3 +7,9 @@ dependencies:
   - pandas
   - beautifulsoup4
   - requests
+  - pydantic
+  - pip
+  - pip:
+      - fastapi
+      - uvicorn
+      - rank-bm25

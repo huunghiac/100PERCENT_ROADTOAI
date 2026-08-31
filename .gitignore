@@ -12,3 +12,8 @@ submission.json
 submission.zip
 *.log
 
+# Frontend dependencies and Next.js build artifacts
+frontend/node_modules/
+frontend/.next/
+frontend/.env*.local
+
