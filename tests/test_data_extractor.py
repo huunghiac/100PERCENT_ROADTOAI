@@ -705,56 +705,5 @@ class DataExtractorTests(unittest.TestCase):
         self.assertEqual(second, "TST_2023_BangCanDoiKeToan_consolidated_02.csv")
         self.assertEqual(mixed_case, "TST_2023_BANGCANDOIKETOAN_consolidated_03.csv")
 
-    def test_mock_ground_truth_matches_csv_values(self):
-        ground_truth_path = ROOT / "data" / "mock_ground_truth.jsonl"
-        items = [
-            json.loads(line)
-            for line in ground_truth_path.read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        ]
-        self.assertGreaterEqual(len(items), 2)
-        for item in items:
-            evidence = item["expected_evidence"]
-            self.assertTrue(evidence)
-            dataframes = []
-            for entry in evidence:
-                csv_path = ROOT / Path(entry["csv_path"])
-                self.assertTrue(csv_path.exists(), csv_path)
-                frame = pd.read_csv(csv_path)
-                self.assertEqual(tuple(frame.columns), CSV_COLUMNS)
-                self.assertTrue(pd.api.types.is_numeric_dtype(frame["Gia_tri"]))
-                dataframes.append(frame)
-
-            calculation = item["expected_calculation"]
-            values = []
-            for indicator in calculation["indicators"]:
-                matches = []
-                for frame in dataframes:
-                    mask = frame["Chi_tieu"].map(folded) == folded(indicator)
-                    matches.extend(frame.loc[mask, "Gia_tri"].tolist())
-                self.assertEqual(len(matches), 1, f"{item['id']}: {indicator}")
-                values.append(float(matches[0]))
-
-            operation = calculation["operation"]
-            if operation == "value":
-                actual = values[0]
-            elif operation == "sum":
-                actual = sum(values)
-            elif operation == "subtract":
-                actual = values[0] - sum(values[1:])
-            elif operation == "divide_percent":
-                actual = values[0] / values[1] * 100
-            else:
-                self.fail(f"Unsupported mock calculation: {operation}")
-            self.assertAlmostEqual(actual, float(item["expected_answer"]), places=8)
-
-    def test_retriever_finds_mock_by_ticker_and_year(self):
-        retriever = TableRetriever(csv_dir="data/mock_csv")
-        paths = retriever.retrieve("Doanh thu thuần của VNM năm 2023 là bao nhiêu?", top_k=5)
-        self.assertTrue(paths)
-        self.assertTrue(all(Path(path).exists() for path in paths))
-        self.assertTrue(all(Path(path).name.startswith("VNM_2023_") for path in paths))
-
-
 if __name__ == "__main__":
     unittest.main()

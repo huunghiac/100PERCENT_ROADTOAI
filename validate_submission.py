@@ -12,7 +12,12 @@ SRC = str(ROOT / "src")
 if SRC not in sys.path:
     sys.path.insert(0, SRC)
 
-from submission_contract import account_ids, load_questions, validate_items  # noqa: E402
+from submission_contract import (  # noqa: E402
+    account_ids,
+    load_questions,
+    validate_items,
+    validate_submission_zip,
+)
 
 
 def _load_json_list(path: str) -> list[dict]:
@@ -72,13 +77,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--questions")
     parser.add_argument("--failures")
     parser.add_argument("--require-complete", action="store_true")
+    parser.add_argument("--zip", dest="zip_path", help="Replay and validate a ZIP in isolation")
     args = parser.parse_args(argv)
-    return 0 if validate(
+    json_valid = validate(
         args.path,
         questions_path=args.questions,
         failures_path=args.failures,
         require_complete=args.require_complete,
-    ) else 1
+    )
+    zip_valid = True
+    if args.zip_path:
+        report = validate_submission_zip(args.zip_path)
+        zip_valid = report.valid
+        print(f"[ZIP REPLAY {'PASS' if zip_valid else 'FAIL'}] {json.dumps(report.to_dict(), ensure_ascii=False)}")
+    return 0 if json_valid and zip_valid else 1
 
 
 if __name__ == "__main__":

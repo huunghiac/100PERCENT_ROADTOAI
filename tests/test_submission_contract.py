@@ -12,7 +12,12 @@ SRC = str(ROOT / "src")
 if SRC not in sys.path:
     sys.path.insert(0, SRC)
 
-from submission_contract import account_ids, package_submission_atomic, validate_items  # noqa: E402
+from submission_contract import (  # noqa: E402
+    account_ids,
+    package_submission_atomic,
+    validate_items,
+    validate_submission_zip,
+)
 from units import detect_target_unit  # noqa: E402
 
 
@@ -63,6 +68,46 @@ def test_atomic_package_has_exact_csv_closure_and_canonical_submission_name(tmp_
     package_submission_atomic(str(destination), str(submission), [str(csv)])
     with zipfile.ZipFile(destination) as archive:
         assert archive.namelist() == ["submission.json", "data/a.csv"]
+
+
+def test_zip_replay_validates_exact_closure_query_and_provenance(tmp_path):
+    submission = tmp_path / "submission.json"
+    submission.write_text(json.dumps([_item()]), encoding="utf-8")
+    csv = tmp_path / "a.csv"
+    csv.write_text("value\n1\n", encoding="utf-8")
+    destination = tmp_path / "submission.zip"
+    package_submission_atomic(str(destination), str(submission), [str(csv)])
+    report = validate_submission_zip(destination)
+    assert report.valid
+    assert report.replayed_count == 1
+    assert report.errors == ()
+
+
+def test_zip_replay_rejects_extra_csv_unused_variable_and_answer_mismatch(tmp_path):
+    item = _item()
+    item["answer"] = 2.0
+    item["evidence"].append({"variable": "df2", "csv_path": "data/b.csv"})
+    destination = tmp_path / "submission.zip"
+    with zipfile.ZipFile(destination, "w") as archive:
+        archive.writestr("submission.json", json.dumps([item]))
+        archive.writestr("data/a.csv", "value\n1\n")
+        archive.writestr("data/b.csv", "value\n2\n")
+        archive.writestr("data/extra.csv", "value\n3\n")
+    report = validate_submission_zip(destination)
+    assert not report.valid
+    assert any("Undeclared CSV files" in error for error in report.errors)
+    assert any("evidence variables unused" in error for error in report.errors)
+
+
+def test_zip_replay_rejects_missing_evidence_and_unexpected_entry(tmp_path):
+    destination = tmp_path / "submission.zip"
+    with zipfile.ZipFile(destination, "w") as archive:
+        archive.writestr("submission.json", json.dumps([_item()]))
+        archive.writestr("notes.txt", "not allowed")
+    report = validate_submission_zip(destination)
+    assert not report.valid
+    assert any("Unexpected archive entries" in error for error in report.errors)
+    assert any("Missing declared evidence files" in error for error in report.errors)
 
 
 def test_atomic_package_rejects_basename_collision_without_overwriting_destination(tmp_path):

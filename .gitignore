@@ -1,23 +1,56 @@
-# Byte-compiled / optimized / DLL files
+# Python bytecode and environments
 __pycache__/
 *.py[cod]
 *$py.class
-*.pyc
+.venv/
+venv/
+env/
 
-# Data & Output Artifacts
-data/processed_csv/_rejected_cells.jsonl
-data/processed_csv/_quarantine.jsonl
-data/raw_vifinqa.tar.gz
-submission.json
-submission.zip
-*.log
-
-# Local test dependencies and scratch directories
+# Test, type-check, and coverage caches
 .pytest_cache/
 .pytest_deps/
 .pytest_tmp*/
 .test-deps/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.pyright/
 
-# Generated diagnostics, submissions, and re-extracted acceptance evidence
-# Previously tracked quality reports remain tracked.
-data/quality_reports/
+# Jupyter and IDE metadata
+.ipynb_checkpoints/
+.vscode/
+.idea/
+*.code-workspace
+
+# Local secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Optional local data archive
+/data/raw_vifinqa.tar.gz
+
+# Pipeline outputs and diagnostics
+/submission*.json
+/submission*.zip
+/diagnostic*.txt
+/full_diagnostic*.json
+/gpu_run_artifacts*.zip
+*.log
+
+# Temporary and backup files
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# One-time maintenance scripts
+/_patch_*.py

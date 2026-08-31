@@ -124,7 +124,7 @@ def evaluate_submission(submission_path: str, ground_truth_path: str, tolerance:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate ViFinQA pipeline submissions.")
     parser.add_argument("--submission", type=str, default="submission.json", help="Path to submission.json")
-    parser.add_argument("--ground_truth", type=str, default="data/mock_ground_truth.jsonl", help="Path to ground truth jsonl")
+    parser.add_argument("--ground_truth", type=str, required=True, help="Path to ground truth JSONL")
     parser.add_argument("--tolerance", type=float, default=1e-3, help="Numerical tolerance for accuracy")
     
     args = parser.parse_args()

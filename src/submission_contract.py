@@ -1,14 +1,25 @@
 """BTC submission schema, ID accounting, and packaging gates."""
 from __future__ import annotations
 
+import io
 import json
 import math
 import os
+import re
 import tempfile
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
+
+import pandas as pd
+
+from query_formatter import (
+    QueryExecutionError,
+    QueryFormatError,
+    execute_expression,
+    referenced_variables,
+)
 
 BTC_FIELDS = frozenset({
     "id", "question", "answer", "relevant_docs",
@@ -126,6 +137,141 @@ def account_ids(expected_ids: Iterable[int], items: Sequence[Mapping[str, Any]],
     return AccountingReport(expected, saved, failed, duplicates, expected-present, present-expected, saved & failed)
 
 
+@dataclass(frozen=True)
+class ZipReplayReport:
+    item_count: int
+    replayed_count: int
+    errors: tuple[str, ...]
+
+    @property
+    def valid(self) -> bool:
+        return not self.errors and self.replayed_count == self.item_count
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "valid": self.valid, "item_count": self.item_count,
+            "replayed_count": self.replayed_count, "error_count": len(self.errors),
+            "errors": list(self.errors),
+        }
+
+
+def _answers_match(left: object, right: object, tolerance: float) -> bool:
+    try:
+        actual, expected = float(left), float(right)
+    except (TypeError, ValueError, OverflowError):
+        return False
+    return math.isclose(actual, expected, rel_tol=tolerance, abs_tol=tolerance)
+
+
+def _replay_zip_items(
+    archive: zipfile.ZipFile,
+    items: list[Any],
+    names: list[str],
+    allowed_csv: re.Pattern[str],
+    errors: list[str],
+    tolerance: float,
+) -> int:
+    declared_paths = {
+        record.get("csv_path")
+        for item in items if isinstance(item, dict)
+        for record in item.get("evidence", []) if isinstance(record, dict)
+        if isinstance(record.get("csv_path"), str)
+    }
+    archived_csv = {name for name in names if allowed_csv.fullmatch(name)}
+    missing, extra = sorted(declared_paths - archived_csv), sorted(archived_csv - declared_paths)
+    if missing:
+        errors.append(f"Missing declared evidence files: {missing}")
+    if extra:
+        errors.append(f"Undeclared CSV files: {extra}")
+    frame_cache: dict[str, pd.DataFrame] = {}
+    replayed = 0
+    for index, item in enumerate(items):
+        if not isinstance(item, dict):
+            continue
+        label = f"Item {index} id={item.get('id', '?')}"
+        evidence = item.get("evidence", [])
+        declared = {
+            record.get("variable") for record in evidence
+            if isinstance(record, dict) and isinstance(record.get("variable"), str)
+        }
+        query = item.get("pandas_query", "")
+        referenced = referenced_variables(query) if isinstance(query, str) else set()
+        if not referenced:
+            errors.append(f"{label}: query references no evidence variable")
+            continue
+        undeclared, unused = sorted(referenced - declared), sorted(declared - referenced)
+        if undeclared:
+            errors.append(f"{label}: query references undeclared variables {undeclared}")
+        if unused:
+            errors.append(f"{label}: evidence variables unused by query {unused}")
+        if undeclared or unused:
+            continue
+        docs, tables = item.get("relevant_docs", []), item.get("relevant_tables", [])
+        table_docs = [value.rsplit("|", 1)[0] for value in tables if isinstance(value, str) and "|" in value]
+        if list(dict.fromkeys(table_docs)) != docs:
+            errors.append(f"{label}: relevant_docs do not match relevant_tables")
+        if len(tables) != len(evidence):
+            errors.append(f"{label}: relevant_tables/evidence count mismatch")
+        frames: dict[str, pd.DataFrame] = {}
+        load_failed = False
+        for record in evidence:
+            csv_path, variable = record.get("csv_path"), record.get("variable")
+            if csv_path not in archived_csv:
+                load_failed = True
+                continue
+            try:
+                if csv_path not in frame_cache:
+                    frame_cache[csv_path] = pd.read_csv(io.BytesIO(archive.read(csv_path)))
+                frames[variable] = frame_cache[csv_path]
+            except Exception as exc:
+                errors.append(f"{label}: cannot load {csv_path}: {type(exc).__name__}: {exc}")
+                load_failed = True
+        if load_failed:
+            continue
+        try:
+            actual = execute_expression(query, frames)
+        except (QueryFormatError, QueryExecutionError) as exc:
+            errors.append(f"{label}: replay failed: {exc}")
+            continue
+        if not _answers_match(actual, item.get("answer"), tolerance):
+            errors.append(f"{label}: replay result {actual!r} != answer {item.get('answer')!r}")
+            continue
+        replayed += 1
+    return replayed
+
+
+def validate_submission_zip(path: str | os.PathLike[str], *, tolerance: float = 1e-9) -> ZipReplayReport:
+    """Validate and replay a submission using only bytes present in its ZIP."""
+    errors: list[str] = []
+    replayed = 0
+    try:
+        archive = zipfile.ZipFile(path)
+    except (OSError, zipfile.BadZipFile) as exc:
+        return ZipReplayReport(0, 0, (f"Cannot open ZIP: {exc}",))
+    with archive:
+        names = archive.namelist()
+        duplicates = sorted({name for name in names if names.count(name) > 1})
+        if duplicates:
+            errors.append(f"Duplicate archive entries: {duplicates}")
+        allowed_csv = re.compile(r"data/[^/\\]+\.csv$")
+        unexpected = sorted(name for name in names if name != "submission.json" and not allowed_csv.fullmatch(name))
+        if unexpected:
+            errors.append(f"Unexpected archive entries: {unexpected}")
+        if names.count("submission.json") != 1:
+            errors.append("Archive must contain exactly one submission.json")
+            return ZipReplayReport(0, 0, tuple(errors))
+        try:
+            items = json.loads(archive.read("submission.json").decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            errors.append(f"Invalid submission.json: {exc}")
+            return ZipReplayReport(0, 0, tuple(errors))
+        errors.extend(f"SCHEMA: {error}" for error in validate_items(items))
+        if not isinstance(items, list):
+            return ZipReplayReport(0, 0, tuple(errors))
+        replayed = _replay_zip_items(archive, items, names, allowed_csv, errors, tolerance)
+        return ZipReplayReport(len(items), replayed, tuple(errors))
+
+
 def package_submission_atomic(output_zip: str, submission_json: str, csv_paths: Iterable[str]) -> None:
     """Write exact CSV closure atomically; reject missing files and basename collisions."""
     by_name: dict[str, str] = {}
@@ -153,4 +299,8 @@ def package_submission_atomic(output_zip: str, submission_json: str, csv_paths: 
             os.unlink(temporary)
 
 
-__all__ = ["AccountingReport", "BTC_FIELDS", "account_ids", "load_questions", "package_submission_atomic", "validate_items"]
+__all__ = [
+    "AccountingReport", "BTC_FIELDS", "ZipReplayReport", "account_ids",
+    "load_questions", "package_submission_atomic", "validate_items",
+    "validate_submission_zip",
+]
